@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp -r /c/Scriptflow_AI/scriptflow-temp/. /c/Scriptflow_AI/)",
+      "Bash(rm -rf /c/Scriptflow_AI/scriptflow-temp)",
+      "Bash(npm pkg:*)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest init --defaults --yes)",
+      "Bash(npx shadcn@latest add card badge input label textarea select dropdown-menu separator skeleton toast sonner dialog alert-dialog --yes)",
+      "Bash(npx shadcn@latest add card badge input label textarea select separator skeleton sonner dialog alert-dialog --yes)",
+      "Bash(npx shadcn@latest add radio-group tabs navigation-menu avatar dropdown-menu --yes)",
+      "Bash(npm run:*)",
+      "Bash(node -e \"const pkg = require\\('./node_modules/@supabase/supabase-js/package.json'\\); console.log\\(pkg.version\\)\")",
+      "Bash(ls /c/Scriptflow_AI/tailwind.config*)",
+      "Bash(node -e \"const p=require\\('./node_modules/@tailwindcss/postcss/package.json'\\); console.log\\('tailwindcss/postcss:', p.version\\)\")",
+      "Bash(node -e \"const p=require\\('./node_modules/tailwindcss/package.json'\\); console.log\\('tailwindcss:', p.version\\)\")",
+      "Bash(node -r dotenv/config --require dotenv/config test-api.js dotenv_config_path=.env.local)"
+    ]
+  }
+}

@@ -1,0 +1,110 @@
+import { notFound, redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  PLATFORM_LABELS,
+  VISUAL_STYLE_LABELS,
+  AI_TOOL_LABELS,
+} from "@/lib/constants";
+import type { Platform, VisualStyle, AiTool } from "@/types/database";
+import ScriptActions from "@/components/scripts/ScriptActions";
+import SceneCard from "@/components/scripts/SceneCard";
+import CopyAllButton from "@/components/scripts/CopyAllButton";
+
+export const dynamic = "force-dynamic";
+
+interface Props {
+  params: Promise<{ id: string }>;
+}
+
+export default async function ScriptPage({ params }: Props) {
+  const { id } = await params;
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: script } = await supabase
+    .from("scripts")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!script) notFound();
+
+  const { data: scenes } = await supabase
+    .from("scenes")
+    .select("*")
+    .eq("script_id", id)
+    .order("scene_number", { ascending: true });
+
+  const allPrompts = (scenes ?? [])
+    .map((s, i) => `Scene ${i + 1}: ${s.ai_generation_prompt}`)
+    .join("\n\n");
+
+  function formatDate(dateStr: string) {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6">
+      {/* Script header */}
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-bold leading-tight">{script.title}</h1>
+            <p className="text-muted-foreground text-sm mt-1 line-clamp-2">
+              {script.concept}
+            </p>
+          </div>
+          <ScriptActions
+            scriptId={id}
+            isFavorite={script.is_favorite}
+            isPublic={script.is_public}
+            shareSlug={script.share_slug}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="secondary">
+            {PLATFORM_LABELS[script.platform as Platform]}
+          </Badge>
+          <Badge variant="outline">
+            {VISUAL_STYLE_LABELS[script.visual_style as VisualStyle]}
+          </Badge>
+          <Badge variant="outline">
+            {AI_TOOL_LABELS[script.ai_tool as AiTool]}
+          </Badge>
+          <Badge variant="outline">{script.duration}</Badge>
+          <Badge variant="outline">{script.scene_count} scenes</Badge>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Generated {formatDate(script.created_at)}
+          {script.generation_time_ms &&
+            ` · ${(script.generation_time_ms / 1000).toFixed(1)}s`}
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-lg">Scenes</h2>
+        <CopyAllButton text={allPrompts} />
+      </div>
+
+      <Separator />
+
+      {/* Scene cards */}
+      <div className="space-y-4">
+        {(scenes ?? []).map((scene) => (
+          <SceneCard key={scene.id} scene={scene} />
+        ))}
+      </div>
+    </div>
+  );
+}
