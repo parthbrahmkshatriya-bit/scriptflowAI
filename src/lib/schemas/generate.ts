@@ -1,10 +1,29 @@
 import { z } from "zod";
 
+const SPAM_PATTERNS = [
+  /^[\s]+$/,                    // whitespace only
+  /^[^a-zA-Z0-9\s]{5,}$/,      // only special characters
+  /^(.)\1{9,}$/,                // same character repeated 10+ times
+  /^(https?|www\.)\S+$/i,       // bare URL only
+];
+
 export const generateSchema = z.object({
   concept: z
     .string()
     .min(10, "Concept must be at least 10 characters")
-    .max(500, "Concept must be 500 characters or less"),
+    .max(500, "Concept must be 500 characters or less")
+    .refine(
+      (val) => val.trim().length >= 10,
+      "Concept cannot be blank or whitespace"
+    )
+    .refine(
+      (val) => /[a-zA-Z]/.test(val),
+      "Concept must contain at least some readable text"
+    )
+    .refine(
+      (val) => !SPAM_PATTERNS.some((p) => p.test(val.trim())),
+      "Concept contains invalid content"
+    ),
   duration: z.enum(["15s", "30s", "60s"]),
   platform: z.enum(["youtube_shorts", "instagram_reels", "tiktok"]),
   visual_style: z.enum(["cinematic", "cartoon", "realistic", "minimal", "anime"]),

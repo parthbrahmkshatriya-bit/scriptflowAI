@@ -21,7 +21,7 @@ export default function DashboardNav() {
     if (error) {
       toast.error(error.message);
     } else {
-      router.push("/login");
+      router.push("/");
       router.refresh();
     }
   }

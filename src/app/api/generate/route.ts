@@ -7,19 +7,34 @@ import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { PLAN_LIMITS, CLAUDE_MODEL } from "@/lib/constants";
 import type { Plan } from "@/types/database";
 
-// Simple in-memory rate limiter (per-process, resets on cold start)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+// In-memory rate limiters (per-process, resets on cold start)
+const minuteRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const hourlyRateLimitMap = new Map<string, { count: number; resetAt: number }>();
 
-function checkRateLimit(userId: string): boolean {
+function checkRateLimit(userId: string): { allowed: boolean; window?: string } {
   const now = Date.now();
-  const entry = rateLimitMap.get(userId);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(userId, { count: 1, resetAt: now + 60_000 });
-    return true;
+
+  // Per-minute: max 5 requests
+  const minuteEntry = minuteRateLimitMap.get(userId);
+  if (!minuteEntry || now > minuteEntry.resetAt) {
+    minuteRateLimitMap.set(userId, { count: 1, resetAt: now + 60_000 });
+  } else if (minuteEntry.count >= 5) {
+    return { allowed: false, window: "minute" };
+  } else {
+    minuteEntry.count++;
   }
-  if (entry.count >= 5) return false;
-  entry.count++;
-  return true;
+
+  // Per-hour: max 10 requests
+  const hourEntry = hourlyRateLimitMap.get(userId);
+  if (!hourEntry || now > hourEntry.resetAt) {
+    hourlyRateLimitMap.set(userId, { count: 1, resetAt: now + 3_600_000 });
+  } else if (hourEntry.count >= 10) {
+    return { allowed: false, window: "hour" };
+  } else {
+    hourEntry.count++;
+  }
+
+  return { allowed: true };
 }
 
 export async function POST(request: Request) {
@@ -31,12 +46,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Rate limit: max 5 per minute
-    if (!checkRateLimit(user.id)) {
-      return NextResponse.json(
-        { error: "Too many requests. Please wait a minute." },
-        { status: 429 }
-      );
+    // Rate limit: 5/min, 10/hour
+    const rateCheck = checkRateLimit(user.id);
+    if (!rateCheck.allowed) {
+      const msg =
+        rateCheck.window === "hour"
+          ? "Too many requests. You can generate up to 10 scripts per hour."
+          : "Too many requests. Please wait a minute.";
+      return NextResponse.json({ error: msg }, { status: 429 });
     }
 
     // Parse + validate input
@@ -86,13 +103,12 @@ export async function POST(request: Request) {
     const limit = PLAN_LIMITS[plan];
 
     if (used >= limit) {
+      const upgradeMsg =
+        plan === "free"
+          ? `You've used all ${limit} free scripts this month. Upgrade to Creator ($9/mo) or Pro ($19/mo) for more.`
+          : `You've reached your ${limit}-script monthly limit. Upgrade to Pro for unlimited scripts.`;
       return NextResponse.json(
-        {
-          error: "Monthly script limit reached",
-          plan,
-          used,
-          limit,
-        },
+        { error: upgradeMsg, plan, used, limit },
         { status: 403 }
       );
     }

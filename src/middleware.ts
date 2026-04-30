@@ -32,18 +32,32 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Protect /dashboard/* routes
-  if (pathname.startsWith("/dashboard") && !user) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
+  if (pathname.startsWith("/dashboard")) {
+    if (!user) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    // Block unverified users from the dashboard
+    if (!user.email_confirmed_at) {
+      const verifyUrl = request.nextUrl.clone();
+      verifyUrl.pathname = "/verify-email";
+      return NextResponse.redirect(verifyUrl);
+    }
   }
 
-  // Redirect logged-in users away from auth pages
-  if ((pathname === "/login" || pathname === "/signup") && user) {
-    const dashboardUrl = request.nextUrl.clone();
-    dashboardUrl.pathname = "/dashboard";
-    return NextResponse.redirect(dashboardUrl);
+  // Redirect fully authenticated+verified users away from auth pages
+  if (user && user.email_confirmed_at) {
+    if (
+      pathname === "/login" ||
+      pathname === "/signup" ||
+      pathname === "/verify-email"
+    ) {
+      const dashboardUrl = request.nextUrl.clone();
+      dashboardUrl.pathname = "/dashboard";
+      return NextResponse.redirect(dashboardUrl);
+    }
   }
 
   return supabaseResponse;
