@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -58,12 +58,8 @@ export default function GeneratePage() {
   }, []);
 
   function savePrefs() {
-    try {
-      const prefs: Prefs = { platform, visual_style: visualStyle, ai_tool: aiTool };
-      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
-    } catch {
-      // ignore
-    }
+    const prefs: Prefs = { platform, visual_style: visualStyle, ai_tool: aiTool };
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));    
   }
 
   async function handleGenerate(e: React.FormEvent) {
@@ -117,7 +113,7 @@ export default function GeneratePage() {
     }
   }
 
-  const charsLeft = MAX_CONCEPT_LENGTH - concept.length;
+  const charsLeft = useMemo(() =>  MAX_CONCEPT_LENGTH - concept.length, [concept]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
