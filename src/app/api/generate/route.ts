@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { generateSchema, scriptOutputSchema } from "@/lib/schemas/generate";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { PLAN_LIMITS, CLAUDE_MODEL } from "@/lib/constants";
+import { validateEmailDomain } from "@/lib/email-validation";
 import type { Plan } from "@/types/database";
 
 // In-memory rate limiters (per-process, resets on cold start)
@@ -44,6 +45,17 @@ export async function POST(request: Request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Block disposable email domains
+    if (user.email) {
+      const domainCheck = validateEmailDomain(user.email);
+      if (!domainCheck.valid) {
+        return NextResponse.json(
+          { error: "Account email is not permitted. Please use a valid email address." },
+          { status: 403 }
+        );
+      }
     }
 
     // Rate limit: 5/min, 10/hour

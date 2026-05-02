@@ -28,12 +28,12 @@ const plans = [
   {
     name: "Creator",
     priceUSD: 9,
-    priceINR: 199,
+    priceINR: 999,
     scripts: "30 scripts / month",
     badge: "Most Popular",
     highlighted: true,
     cta: "Start Creating",
-    href: "/signup?plan=creator",
+    href: "/dashboard/upgrade",
     features: [
       "30 script generations / month",
       "All platforms & visual styles",
@@ -47,12 +47,12 @@ const plans = [
   {
     name: "Pro",
     priceUSD: 19,
-    priceINR: 499,
+    priceINR: 1999,
     scripts: "Unlimited scripts",
     badge: null,
     highlighted: false,
     cta: "Go Pro",
-    href: "/signup?plan=pro",
+    href: "/dashboard/upgrade",
     features: [
       "Unlimited script generations",
       "Everything in Creator",
