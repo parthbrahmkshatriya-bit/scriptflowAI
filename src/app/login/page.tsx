@@ -2,8 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { Suspense } from "react";
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -32,12 +31,22 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [magicLoading, setMagicLoading] = useState(false);
 
+  useEffect(() => {
+    if (searchParams.get("verified") === "true") {
+      toast.success("Email verified successfully! Please sign in.");
+    }
+  }, [searchParams]);
+
   async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       toast.error(error.message);
+    } else if (!data.user?.email_confirmed_at) {
+      toast.error("Please verify your email before signing in.");
+      await supabase.auth.signOut();
+      router.push("/verify-email");
     } else {
       router.push(redirectTo);
       router.refresh();

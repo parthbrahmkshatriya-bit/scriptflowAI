@@ -53,14 +53,25 @@ export default async function DashboardLayout({
             >
               {PLAN_LABELS[plan]}
             </Badge>
+            {plan === "free" && (
+              <Link
+                href="/dashboard/upgrade"
+                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 transition-all"
+              >
+                Upgrade
+              </Link>
+            )}
             <DashboardNav />
           </div>
         </div>
         {/* Mobile nav */}
-        <div className="sm:hidden flex border-t px-4 py-2 gap-1">
+        <div className="sm:hidden flex border-t px-4 py-2 gap-1 flex-wrap">
           <Link href="/dashboard" className={navLinkClass}>Dashboard</Link>
           <Link href="/dashboard/generate" className={navLinkClass}>Generate</Link>
           <Link href="/dashboard/settings" className={navLinkClass}>Settings</Link>
+          {plan === "free" && (
+            <Link href="/dashboard/upgrade" className={navLinkClass}>Upgrade</Link>
+          )}
         </div>
       </header>
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6">{children}</main>

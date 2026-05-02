@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { validateEmailDomain } from "@/lib/email-validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,13 +36,18 @@ export default function SignupPage() {
       toast.error("Password must be at least 8 characters");
       return;
     }
+    const domainCheck = validateEmailDomain(email);
+    if (!domainCheck.valid) {
+      toast.error(domainCheck.reason ?? "Please use a valid email address. Temporary/disposable emails are not allowed.");
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?type=email_confirm`,
       },
     });
     if (error) {

@@ -14,7 +14,13 @@
       "Bash(ls /c/Scriptflow_AI/tailwind.config*)",
       "Bash(node -e \"const p=require\\('./node_modules/@tailwindcss/postcss/package.json'\\); console.log\\('tailwindcss/postcss:', p.version\\)\")",
       "Bash(node -e \"const p=require\\('./node_modules/tailwindcss/package.json'\\); console.log\\('tailwindcss:', p.version\\)\")",
-      "Bash(node -r dotenv/config --require dotenv/config test-api.js dotenv_config_path=.env.local)"
+      "Bash(node -r dotenv/config --require dotenv/config test-api.js dotenv_config_path=.env.local)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Read(//c/Users/BAPS/Downloads/**)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Scriptflow_AI\" -Recurse -Name)"
     ]
   }
 }

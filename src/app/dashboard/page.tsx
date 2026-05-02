@@ -165,18 +165,35 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {/* Upgrade prompt for free users */}
-      {plan === "free" && used >= 2 && (
-        <Card className="border-primary/50 bg-primary/5">
+      {/* Upgrade prompt for free users who hit the limit */}
+      {plan === "free" && used >= limit && (
+        <Card className="border-violet-500/50 bg-violet-950/20">
+          <CardContent className="flex items-center justify-between gap-4 px-4 py-3 flex-wrap">
+            <div>
+              <p className="font-semibold text-sm">Monthly script limit reached</p>
+              <p className="text-xs text-muted-foreground">
+                Upgrade to Creator for 30 scripts/month — ₹999/mo
+              </p>
+            </div>
+            <Link href="/dashboard/upgrade" className={cn(buttonVariants({ size: "sm" }), "bg-gradient-to-r from-violet-600 to-blue-600 text-white hover:from-violet-500 hover:to-blue-500 border-0")}>
+              Upgrade to Creator — ₹999/mo
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Soft upgrade nudge when approaching limit */}
+      {plan === "free" && used < limit && used >= Math.floor(limit * 0.6) && (
+        <Card className="border-primary/30 bg-primary/5">
           <CardContent className="flex items-center justify-between gap-4 px-4 py-3 flex-wrap">
             <div>
               <p className="font-semibold text-sm">Running low on scripts</p>
               <p className="text-xs text-muted-foreground">
-                Upgrade to Creator for 30 scripts/month
+                {limit - used} script{limit - used === 1 ? "" : "s"} left this month · Upgrade for more
               </p>
             </div>
-            <Link href="/dashboard/settings" className={cn(buttonVariants({ size: "sm" }))}>
-              Upgrade — $9/mo
+            <Link href="/dashboard/upgrade" className={cn(buttonVariants({ size: "sm" }))}>
+              Upgrade — ₹999/mo
             </Link>
           </CardContent>
         </Card>

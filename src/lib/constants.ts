@@ -18,8 +18,8 @@ export const PRICING_USD: Record<Exclude<Plan, "free">, number> = {
 };
 
 export const PRICING_INR: Record<Exclude<Plan, "free">, number> = {
-  creator: 199,
-  pro: 499,
+  creator: 999,
+  pro: 1999,
 };
 
 export const DURATION_OPTIONS: { value: VideoDuration; label: string; scenes: string }[] = [

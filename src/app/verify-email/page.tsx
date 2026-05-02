@@ -1,7 +1,50 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { toast } from "sonner";
 
 export default function VerifyEmailPage() {
+  const [email, setEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const supabase = createClient();
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) setEmail(data.user.email);
+    });
+  }, [supabase]);
+
+  async function handleResend() {
+    if (!email) {
+      toast.error("No email address found. Please sign up again.");
+      return;
+    }
+    setResending(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?type=email_confirm`,
+      },
+    });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Verification email resent. Check your inbox.");
+    }
+    setResending(false);
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md text-center">
@@ -22,9 +65,15 @@ export default function VerifyEmailPage() {
               />
             </svg>
           </div>
-          <CardTitle className="text-2xl">Check your inbox</CardTitle>
+          <CardTitle className="text-2xl">Check your email</CardTitle>
           <CardDescription className="text-base">
-            We&apos;ve sent you a confirmation link. Click it to verify your account and start generating scripts.
+            We&apos;ve sent a confirmation link to{" "}
+            {email ? (
+              <span className="font-medium text-foreground">{email}</span>
+            ) : (
+              "your email address"
+            )}
+            . Click it to verify your account.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -33,21 +82,28 @@ export default function VerifyEmailPage() {
             <ol className="list-decimal list-inside space-y-1 text-left">
               <li>Open the email from ScriptFlow AI</li>
               <li>Click the &quot;Confirm your email&quot; button</li>
-              <li>You&apos;ll be redirected to your dashboard automatically</li>
+              <li>You&apos;ll be redirected to sign in</li>
             </ol>
           </div>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={handleResend}
+            disabled={resending}
+          >
+            {resending ? "Sending..." : "Resend verification email"}
+          </Button>
+
           <p className="text-xs text-muted-foreground">
-            Didn&apos;t receive it? Check your spam folder or{" "}
-            <Link href="/signup" className="text-primary hover:underline">
-              try signing up again
-            </Link>
-            .
+            Didn&apos;t receive it? Check your spam folder.
           </p>
+
           <Link
             href="/login"
             className="inline-flex items-center justify-center w-full rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors"
           >
-            Back to sign in
+            Already verified? Sign in
           </Link>
         </CardContent>
       </Card>
