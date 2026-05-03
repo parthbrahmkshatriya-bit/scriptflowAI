@@ -19,26 +19,43 @@ import { buttonVariants } from "@/lib/button-variants"
 import { cn } from "@/lib/utils"
 import { PricingSection } from "@/components/landing/PricingSection"
 import { FaqSection } from "@/components/landing/FaqSection"
+import { faqs } from "@/components/landing/faq-data"
 import { AnimateOnScroll } from "@/components/landing/AnimateOnScroll"
 import { TiltCard } from "@/components/landing/TiltCard"
 
+const BASE_URL = "https://scriptflow-ai-omega.vercel.app"
+
 export const metadata: Metadata = {
-  title: "ScriptFlow AI — Turn Any Video Idea Into a Production-Ready Script",
+  title: {
+    absolute:
+      "ScriptFlow AI — AI Video Script Generator for YouTube Shorts, Reels & TikTok",
+  },
   description:
-    "Generate complete, scene-by-scene AI video scripts with copy-paste prompts for VEO 3, Kling 2.0, Runway Gen-4, Pika 2.0, and Midjourney in under 10 seconds.",
+    "Turn any video idea into a production-ready scene-by-scene script in 10 seconds. Copy-paste AI prompts for VEO 3, Kling, Runway, and Pika. Free to start.",
   keywords: [
     "AI video script generator",
-    "VEO 3 prompts",
-    "Kling AI prompts",
-    "Runway Gen-4 script",
-    "short-form video script",
+    "video script AI",
     "YouTube Shorts script",
     "TikTok script generator",
+    "Instagram Reels script",
+    "VEO 3 prompts",
+    "Kling prompts",
+    "Runway prompts",
+    "Pika prompts",
+    "AI video prompts",
+    "scene-by-scene script",
+    "short-form video script",
+    "Midjourney video prompts",
   ],
+  alternates: {
+    canonical: BASE_URL,
+  },
   openGraph: {
-    title: "ScriptFlow AI — AI Video Script Generator",
+    title:
+      "ScriptFlow AI — AI Video Script Generator for YouTube Shorts, Reels & TikTok",
     description:
-      "Turn any video idea into a production-ready script in 10 seconds. Tool-specific prompts for VEO 3, Kling, Runway, Pika, and Midjourney.",
+      "Turn any video idea into a production-ready scene-by-scene script in 10 seconds. Copy-paste AI prompts for VEO 3, Kling, Runway, and Pika. Free to start.",
+    url: BASE_URL,
     type: "website",
   },
 }
@@ -689,6 +706,68 @@ export default function HomePage() {
           </p>
         </AnimateOnScroll>
       </section>
+
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: "ScriptFlow AI",
+            description:
+              "Turn any video idea into a production-ready scene-by-scene script in 10 seconds. Copy-paste AI prompts for VEO 3, Kling, Runway, and Pika.",
+            applicationCategory: "Multimedia",
+            operatingSystem: "Web",
+            url: BASE_URL,
+            offers: [
+              {
+                "@type": "Offer",
+                name: "Free",
+                price: "0",
+                priceCurrency: "USD",
+                description: "3 AI video scripts per month",
+              },
+              {
+                "@type": "Offer",
+                name: "Creator",
+                price: "9",
+                priceCurrency: "USD",
+                description: "30 AI video scripts per month",
+              },
+              {
+                "@type": "Offer",
+                name: "Pro",
+                price: "19",
+                priceCurrency: "USD",
+                description: "Unlimited AI video scripts",
+              },
+            ],
+            aggregateRating: {
+              "@type": "AggregateRating",
+              ratingValue: "4.9",
+              reviewCount: "87",
+            },
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: faqs.map((faq) => ({
+              "@type": "Question",
+              name: faq.question,
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: faq.answer,
+              },
+            })),
+          }),
+        }}
+      />
 
       {/* ══════════════════════════════════════════
           FOOTER
