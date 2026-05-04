@@ -12,6 +12,29 @@ export const PLAN_LABELS: Record<Plan, string> = {
   pro: "Pro",
 };
 
+// ── Early-bird launch pricing ────────────────────────────────────────
+export const EARLY_BIRD_ACTIVE = true;
+export const EARLY_BIRD_TOTAL = 100;
+/** Update manually (or replace with a DB query) as spots fill up */
+export const EARLY_BIRD_CLAIMED = 0;
+
+export const EARLY_BIRD_PRICING: Record<
+  Exclude<Plan, "free">,
+  { inr: number; usd: number }
+> = {
+  creator: { inr: 599, usd: 5 },  // 40% off ₹999 / $9
+  pro: { inr: 1199, usd: 11 },    // 40% off ₹1999 / $19
+};
+
+export const REGULAR_PRICING: Record<
+  Exclude<Plan, "free">,
+  { inr: number; usd: number }
+> = {
+  creator: { inr: 999, usd: 9 },
+  pro: { inr: 1999, usd: 19 },
+};
+
+// Legacy — kept for backwards compatibility; prefer REGULAR_PRICING above
 export const PRICING_USD: Record<Exclude<Plan, "free">, number> = {
   creator: 9,
   pro: 19,

@@ -292,10 +292,10 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-[#050508]" />
 
           {/* Animated blobs */}
-          <div className="absolute -top-[20%] -right-[5%] h-[700px] w-[700px] rounded-full bg-violet-600/20 blur-[140px] animate-blob-1" />
-          <div className="absolute -bottom-[15%] -left-[5%] h-[650px] w-[650px] rounded-full bg-blue-600/18 blur-[140px] animate-blob-2" />
-          <div className="absolute top-[30%] right-[15%] h-[450px] w-[450px] rounded-full bg-pink-600/12 blur-[120px] animate-blob-3" />
-          <div className="absolute bottom-[10%] left-[20%] h-[500px] w-[500px] rounded-full bg-teal-500/10 blur-[130px] animate-blob-4" />
+          <div className="absolute -top-[20%] -right-[5%] h-[700px] w-[700px] rounded-full bg-violet-600/35 blur-[120px] animate-blob-1" />
+          <div className="absolute -bottom-[15%] -left-[5%] h-[650px] w-[650px] rounded-full bg-blue-600/28 blur-[120px] animate-blob-2" />
+          <div className="absolute top-[30%] right-[15%] h-[450px] w-[450px] rounded-full bg-pink-600/22 blur-[100px] animate-blob-3" />
+          <div className="absolute bottom-[10%] left-[20%] h-[500px] w-[500px] rounded-full bg-teal-500/18 blur-[110px] animate-blob-4" />
 
           {/* Dot grid overlay */}
           <div className="absolute inset-0 dot-grid opacity-40" />
