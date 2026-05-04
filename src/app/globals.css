@@ -274,6 +274,33 @@
               transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* ── Page enter fade-in ─────────────────────────────────────────── */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: page-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Consistent button hover lift ──────────────────────────────── */
+.btn-lift {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-lift:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.015);
+}
+.btn-lift:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+}
+
 /* ── Disable heavy motion when user prefers or on mobile ────────── */
 @media (prefers-reduced-motion: reduce) {
   .animate-blob-1, .animate-blob-2,

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createRazorpayOrder } from "@/lib/razorpay/client";
-import { PRICING_INR } from "@/lib/constants";
+import { EARLY_BIRD_ACTIVE, EARLY_BIRD_PRICING, PRICING_INR } from "@/lib/constants";
 import type { Plan } from "@/types/database";
 
 const PAISE_PER_RUPEE = 100;
@@ -24,7 +24,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 422 });
     }
 
-    const amountINR = PRICING_INR[plan];
+    // Use early-bird pricing when the launch offer is active
+    const amountINR = EARLY_BIRD_ACTIVE ? EARLY_BIRD_PRICING[plan].inr : PRICING_INR[plan];
     const amountPaise = amountINR * PAISE_PER_RUPEE;
     const receipt = `rcpt_${user.id.slice(0, 8)}_${Date.now()}`;
 
