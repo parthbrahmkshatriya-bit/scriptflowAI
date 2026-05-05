@@ -308,14 +308,15 @@ export default function HomePage() {
         <div className="relative max-w-5xl mx-auto text-center">
 
           {/* Badge */}
-          <div
-            className="inline-flex items-center gap-2 rounded-full border border-violet-500/40 bg-violet-500/10 px-4 py-1.5 text-sm text-violet-300 mb-8"
+          <a
+            href="#features"
+            className="inline-flex items-center gap-2 rounded-full border border-violet-500/40 bg-violet-500/10 px-4 py-1.5 text-sm text-violet-300 mb-8 hover:border-violet-500/70 hover:bg-violet-500/20 transition-all duration-200"
             style={{ animation: "reveal-up 0.7s cubic-bezier(0.16,1,0.3,1) 0.05s both" }}
           >
             <Sparkles className="size-3.5" />
             <span>Now with VEO 3 support</span>
             <ArrowRight className="size-3.5" />
-          </div>
+          </a>
 
           {/* Headline — word-group reveal */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
@@ -324,7 +325,7 @@ export default function HomePage() {
                 className="block"
                 style={{ animation: "reveal-up 0.9s cubic-bezier(0.16,1,0.3,1) 0.15s both" }}
               >
-                Turn Any Video Idea Into a
+                Turn Any Video Idea Into
               </span>
             </span>
             <span className="block overflow-hidden pb-1">
@@ -332,7 +333,7 @@ export default function HomePage() {
                 className="block"
                 style={{ animation: "reveal-up 0.9s cubic-bezier(0.16,1,0.3,1) 0.42s both" }}
               >
-                <span className="shimmer-text">Production-Ready Script</span>
+                a <span className="shimmer-text">Production-Ready Script</span>
               </span>
             </span>
             <span className="block overflow-hidden pb-1">
@@ -353,30 +354,36 @@ export default function HomePage() {
             AI-powered scene-by-scene scripts with copy-paste prompts for{" "}
             <span className="text-blue-300 font-medium">VEO 3</span>,{" "}
             <span className="text-orange-300 font-medium">Kling</span>,{" "}
-            <span className="text-purple-300 font-medium">Runway</span>, and{" "}
-            <span className="text-pink-300 font-medium">Pika</span>.
+            <span className="text-purple-300 font-medium">Runway</span>,{" "}
+            <span className="text-pink-300 font-medium">Pika</span>, and{" "}
+            <span className="text-emerald-300 font-medium">Midjourney</span>.
             Stop writing prompts. Start creating.
           </p>
 
           {/* CTAs */}
           <div
-            className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16"
+            className="flex flex-col items-center gap-4 mb-16"
             style={{ animation: "reveal-up 0.8s cubic-bezier(0.16,1,0.3,1) 1.05s both" }}
           >
-            <Link
-              href="/signup"
-              className="inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold rounded-xl text-white bg-gradient-to-r from-violet-600 via-purple-600 to-blue-600 hover:from-violet-500 hover:via-purple-500 hover:to-blue-500 transition-all duration-300 animate-cta-pulse"
-            >
-              <Sparkles className="size-4" />
-              Get Started Free
-            </Link>
-            <a
-              href="#how-it-works"
-              className="inline-flex items-center gap-2 px-8 py-3.5 text-base font-medium rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 hover:border-white/25 backdrop-blur-sm text-zinc-300 hover:text-white transition-all duration-300"
-            >
-              <Play className="size-4" />
-              See How It Works
-            </a>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Link
+                href="/signup"
+                className="inline-flex items-center gap-2 px-8 py-3.5 text-base font-semibold rounded-xl text-white bg-gradient-to-r from-violet-600 via-purple-600 to-blue-600 hover:from-violet-500 hover:via-purple-500 hover:to-blue-500 transition-all duration-300 animate-cta-pulse"
+              >
+                <Sparkles className="size-4" />
+                Get Started Free
+              </Link>
+              <a
+                href="#how-it-works"
+                className="inline-flex items-center gap-2 px-8 py-3.5 text-base font-medium rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 hover:border-white/25 backdrop-blur-sm text-zinc-300 hover:text-white transition-all duration-300"
+              >
+                <Play className="size-4" />
+                See How It Works
+              </a>
+            </div>
+            <p className="text-xs text-zinc-600 flex items-center gap-1.5">
+              <span className="text-emerald-500">✓</span> 7-day money-back guarantee on paid plans · No credit card required
+            </p>
           </div>
 
           {/* Social proof */}
@@ -390,12 +397,12 @@ export default function HomePage() {
                   <Star key={i} className="size-3.5 text-yellow-400 fill-yellow-400" />
                 ))}
               </div>
-              <span>Loved by creators</span>
+              <span>Loved by 50+ creators</span>
             </div>
             <div className="h-4 w-px bg-zinc-700 hidden sm:block" />
-            <span>No credit card required</span>
-            <div className="h-4 w-px bg-zinc-700 hidden sm:block" />
             <span>3 free scripts/month</span>
+            <div className="h-4 w-px bg-zinc-700 hidden sm:block" />
+            <span>7-day money-back guarantee</span>
           </div>
         </div>
 
@@ -795,6 +802,7 @@ export default function HomePage() {
               <Link href="/login" className="hover:text-white transition-colors">Login</Link>
               <Link href="/signup" className="hover:text-white transition-colors">Sign Up</Link>
               <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
+              <a href="mailto:parthbrahmkshatriya@gmail.com" className="hover:text-white transition-colors">Contact</a>
             </nav>
           </div>
 

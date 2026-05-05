@@ -10,7 +10,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -241,9 +240,9 @@ export default function GeneratePage() {
           <Label className="text-base font-semibold">Platform</Label>
           <Select value={platform} onValueChange={(v) => setPlatform(v as Platform)}>
             <SelectTrigger className="w-full">
-              <SelectValue>
-                {PLATFORM_OPTIONS.find((p) => p.value === platform)?.label}
-              </SelectValue>
+              <span className="flex-1 text-sm text-left">
+                {PLATFORM_OPTIONS.find((p) => p.value === platform)?.label ?? "Select platform"}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {PLATFORM_OPTIONS.map((opt) => (
@@ -258,9 +257,9 @@ export default function GeneratePage() {
           <Label className="text-base font-semibold">Visual style</Label>
           <Select value={visualStyle} onValueChange={(v) => setVisualStyle(v as VisualStyle)}>
             <SelectTrigger className="w-full">
-              <SelectValue>
-                {VISUAL_STYLE_OPTIONS.find((s) => s.value === visualStyle)?.label}
-              </SelectValue>
+              <span className="flex-1 text-sm text-left">
+                {VISUAL_STYLE_OPTIONS.find((s) => s.value === visualStyle)?.label ?? "Select style"}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {VISUAL_STYLE_OPTIONS.map((opt) => (
@@ -275,9 +274,9 @@ export default function GeneratePage() {
           <Label className="text-base font-semibold">AI tool</Label>
           <Select value={aiTool} onValueChange={(v) => setAiTool(v as AiTool)}>
             <SelectTrigger className="w-full">
-              <SelectValue>
-                {AI_TOOL_OPTIONS.find((t) => t.value === aiTool)?.label}
-              </SelectValue>
+              <span className="flex-1 text-sm text-left">
+                {AI_TOOL_OPTIONS.find((t) => t.value === aiTool)?.label ?? "Select tool"}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {AI_TOOL_OPTIONS.map((opt) => (
