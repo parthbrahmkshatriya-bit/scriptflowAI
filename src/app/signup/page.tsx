@@ -19,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 export default function SignupPage() {
@@ -69,8 +70,18 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 gap-6 bg-[#050508]">
+      {/* Logo */}
+      <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+        <div className="size-8 rounded-xl bg-gradient-to-br from-violet-600 to-blue-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+          <Sparkles className="size-4 text-white" />
+        </div>
+        <span className="bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">
+          ScriptFlow AI
+        </span>
+      </Link>
+
+      <Card className="w-full max-w-md border-white/10 bg-white/[0.04]">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Create your account</CardTitle>
           <CardDescription>

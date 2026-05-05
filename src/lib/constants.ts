@@ -16,7 +16,7 @@ export const PLAN_LABELS: Record<Plan, string> = {
 export const EARLY_BIRD_ACTIVE = true;
 export const EARLY_BIRD_TOTAL = 100;
 /** Update manually (or replace with a DB query) as spots fill up */
-export const EARLY_BIRD_CLAIMED = 0;
+export const EARLY_BIRD_CLAIMED = 13;
 
 export const EARLY_BIRD_PRICING: Record<
   Exclude<Plan, "free">,
