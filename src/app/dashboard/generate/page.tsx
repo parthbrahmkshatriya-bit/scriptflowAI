@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ImageIcon, X } from "lucide-react";
 import {
   DURATION_OPTIONS,
   PLATFORM_OPTIONS,
@@ -49,6 +49,11 @@ export default function GeneratePage() {
   const [aiTool, setAiTool] = useState<AiTool>("veo3");
   const [loading, setLoading] = useState(false);
   const [usage, setUsage] = useState<UsageData | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [imagePurpose, setImagePurpose] = useState<"visual_reference" | "product_ad">("visual_reference");
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -91,6 +96,51 @@ export default function GeneratePage() {
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
   }
 
+  const processFile = useCallback((file: File) => {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Only JPEG, PNG, and WebP images are supported");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be 5 MB or smaller");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImageFile(file);
+      setImageDataUrl(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+    e.target.value = "";
+  }, [processFile]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
+  }, [processFile]);
+
+  const removeImage = useCallback(() => {
+    setImageFile(null);
+    setImageDataUrl(null);
+  }, []);
+
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
     if (concept.trim().length < 10) {
@@ -109,6 +159,8 @@ export default function GeneratePage() {
           platform,
           visual_style: visualStyle,
           ai_tool: aiTool,
+          image_base64: imageDataUrl ?? undefined,
+          image_purpose: imageDataUrl ? imagePurpose : undefined,
         }),
       });
       const data = await res.json();
@@ -206,6 +258,103 @@ export default function GeneratePage() {
           <div className={`text-xs text-right ${charsLeft < 50 ? "text-destructive" : "text-muted-foreground"}`}>
             {charsLeft} characters remaining
           </div>
+        </div>
+
+        {/* Reference Image (optional) */}
+        <div className="space-y-3">
+          <Label className="text-base font-semibold">
+            Reference Image{" "}
+            <span className="text-sm font-normal text-zinc-500">(optional)</span>
+          </Label>
+
+          {imageDataUrl ? (
+            <div className="rounded-xl border border-white/[0.1] bg-white/[0.03] p-3 space-y-3">
+              {/* Preview row */}
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imageDataUrl}
+                  alt="Reference"
+                  className="w-14 h-14 rounded-lg object-cover shrink-0 border border-white/[0.08]"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-zinc-300 truncate">{imageFile?.name}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {imageFile ? (imageFile.size / 1024 / 1024).toFixed(2) + " MB" : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={removeImage}
+                  className="size-7 rounded-lg flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/[0.08] transition-colors"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+
+              {/* Purpose selector */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+                  How should AI use this image?
+                </p>
+                <RadioGroup
+                  value={imagePurpose}
+                  onValueChange={(v) => setImagePurpose(v as "visual_reference" | "product_ad")}
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+                >
+                  {[
+                    { value: "visual_reference", label: "Visual Reference", desc: "Match the look, mood & style" },
+                    { value: "product_ad", label: "Product / Ad", desc: "Build an ad script around this product" },
+                  ].map((opt) => (
+                    <div key={opt.value}>
+                      <RadioGroupItem value={opt.value} id={`img-${opt.value}`} className="sr-only" />
+                      <Label
+                        htmlFor={`img-${opt.value}`}
+                        className={`flex flex-col p-2.5 rounded-lg border-2 cursor-pointer transition-all select-none ${
+                          imagePurpose === opt.value
+                            ? "border-violet-500 bg-violet-500/10 text-white"
+                            : "border-border hover:border-violet-500/40 hover:bg-white/[0.03]"
+                        }`}
+                      >
+                        <span className="text-sm font-semibold">{opt.label}</span>
+                        <span className="text-xs text-muted-foreground mt-0.5">{opt.desc}</span>
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+            </div>
+          ) : (
+            /* Drop zone */
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+              className={`rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-all duration-200 ${
+                isDragging
+                  ? "border-violet-500 bg-violet-500/10"
+                  : "border-white/[0.12] hover:border-violet-500/50 hover:bg-white/[0.03]"
+              }`}
+            >
+              <ImageIcon className="size-7 mx-auto mb-2 text-zinc-500" />
+              <p className="text-sm font-medium text-zinc-300">
+                Drop an image or{" "}
+                <span className="text-violet-400">click to browse</span>
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">JPEG, PNG, WebP · Max 5 MB</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+            </div>
+          )}
         </div>
 
         {/* Duration */}
