@@ -77,7 +77,7 @@ export async function POST(request: Request) {
         { status: 422 }
       );
     }
-    const { concept, duration, platform, visual_style, ai_tool } = parsed.data;
+    const { concept, duration, platform, visual_style, ai_tool, image_base64, image_purpose } = parsed.data;
 
     // Use admin client for user operations to bypass RLS
     const admin = createAdminClient();
@@ -131,7 +131,32 @@ export async function POST(request: Request) {
       visualStyle: visual_style,
       duration,
       platform,
+      imagePurpose: image_purpose,
     });
+
+    // Build user message content (text-only or with image)
+    const userText = `Video concept: ${concept}\n\nGenerate the complete production script as JSON.`;
+    type ContentBlock =
+      | { type: "text"; text: string }
+      | { type: "image"; source: { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/webp"; data: string } };
+
+    let userContent: string | ContentBlock[] = userText;
+    if (image_base64) {
+      const match = image_base64.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
+      if (match) {
+        userContent = [
+          {
+            type: "image" as const,
+            source: {
+              type: "base64" as const,
+              media_type: match[1] as "image/jpeg" | "image/png" | "image/webp",
+              data: match[2],
+            },
+          },
+          { type: "text" as const, text: userText },
+        ];
+      }
+    }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     console.log("[generate] ANTHROPIC_API_KEY prefix:", apiKey?.slice(0, 10) ?? "MISSING");
@@ -152,12 +177,7 @@ export async function POST(request: Request) {
         model: CLAUDE_MODEL,
         max_tokens: 4096,
         system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: `Video concept: ${concept}\n\nGenerate the complete production script as JSON.`,
-          },
-        ],
+        messages: [{ role: "user", content: userContent as Parameters<typeof anthropic.messages.create>[0]["messages"][0]["content"] }],
       });
       console.log("[generate] Claude response received, stop_reason:", message.stop_reason);
       aiResponse = message.content[0].type === "text" ? message.content[0].text : "";
@@ -170,12 +190,7 @@ export async function POST(request: Request) {
           model: CLAUDE_MODEL,
           max_tokens: 4096,
           system: systemPrompt,
-          messages: [
-            {
-              role: "user",
-              content: `Video concept: ${concept}\n\nGenerate the complete production script as JSON.`,
-            },
-          ],
+          messages: [{ role: "user", content: userContent as Parameters<typeof anthropic.messages.create>[0]["messages"][0]["content"] }],
         });
         aiResponse = message.content[0].type === "text" ? message.content[0].text : "";
       } catch (retryError) {

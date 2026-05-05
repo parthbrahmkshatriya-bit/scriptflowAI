@@ -43,10 +43,18 @@ export function buildSystemPrompt(params: {
   visualStyle: VisualStyle;
   duration: VideoDuration;
   platform: Platform;
+  imagePurpose?: "visual_reference" | "product_ad" | null;
 }): string {
-  const { aiTool, visualStyle, duration, platform } = params;
+  const { aiTool, visualStyle, duration, platform, imagePurpose } = params;
 
-  return `You are ScriptFlow AI, an expert short-form video script writer and AI prompt engineer.
+  const imageInstructions =
+    imagePurpose === "visual_reference"
+      ? `\nIMAGE REFERENCE: The user has uploaded a reference image. Analyze its visual style, color palette, lighting mood, and compositional aesthetic. Generate scenes that closely match and reference this visual aesthetic throughout the entire script.\n`
+      : imagePurpose === "product_ad"
+      ? `\nPRODUCT IMAGE: The user has uploaded a product image. Analyze the product's appearance and build a compelling advertisement video script that showcases this product. Feature product close-ups, lifestyle usage scenes, and end with a strong call-to-action.\n`
+      : "";
+
+  return `You are ScriptFlow AI, an expert short-form video script writer and AI prompt engineer.${imageInstructions}
 
 Given a video concept, generate a complete scene-by-scene production script optimized for vertical 9:16 video.
 

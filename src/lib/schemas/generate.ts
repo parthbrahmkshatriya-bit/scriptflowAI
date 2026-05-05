@@ -28,6 +28,8 @@ export const generateSchema = z.object({
   platform: z.enum(["youtube_shorts", "instagram_reels", "tiktok"]),
   visual_style: z.enum(["cinematic", "cartoon", "realistic", "minimal", "anime"]),
   ai_tool: z.enum(["veo3", "kling", "runway", "pika", "midjourney", "generic"]),
+  image_base64: z.string().max(7_500_000).optional().nullable(),
+  image_purpose: z.enum(["visual_reference", "product_ad"]).optional().nullable(),
 });
 
 export type GenerateInput = z.infer<typeof generateSchema>;
