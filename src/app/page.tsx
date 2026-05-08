@@ -720,6 +720,26 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "ScriptFlow AI",
+            url: BASE_URL,
+            logo: `${BASE_URL}/icon-512.png`,
+            contactPoint: {
+              "@type": "ContactPoint",
+              email: "parthbrahmkshatriya@gmail.com",
+              contactType: "customer support",
+              availableLanguage: ["English", "Hindi"],
+              areaServed: ["IN", "US", "GB", "AU", "CA"],
+            },
+            sameAs: [],
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
             "@type": "SoftwareApplication",
             name: "ScriptFlow AI",
             description:
@@ -799,6 +819,7 @@ export default function HomePage() {
             <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-zinc-500">
               <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
               <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+              <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
               <Link href="/login" className="hover:text-white transition-colors">Login</Link>
               <Link href="/signup" className="hover:text-white transition-colors">Sign Up</Link>
               <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
