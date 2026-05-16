@@ -58,8 +58,7 @@ function LoginForm() {
       await supabase.auth.signOut();
       router.push("/verify-email");
     } else {
-      router.push(redirectTo);
-      router.refresh();
+      window.location.href = redirectTo;
     }
     setLoading(false);
   }
