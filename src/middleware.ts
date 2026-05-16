@@ -31,19 +31,18 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  const origin = request.nextUrl.origin;
+
   // Protect /dashboard/* routes
   if (pathname.startsWith("/dashboard")) {
     if (!user) {
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/login";
+      const loginUrl = new URL("/login", origin);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
     // Block unverified users from the dashboard
     if (!user.email_confirmed_at) {
-      const verifyUrl = request.nextUrl.clone();
-      verifyUrl.pathname = "/verify-email";
-      return NextResponse.redirect(verifyUrl);
+      return NextResponse.redirect(new URL("/verify-email", origin));
     }
   }
 
@@ -54,9 +53,7 @@ export async function middleware(request: NextRequest) {
       pathname === "/signup" ||
       pathname === "/verify-email"
     ) {
-      const dashboardUrl = request.nextUrl.clone();
-      dashboardUrl.pathname = "/dashboard";
-      return NextResponse.redirect(dashboardUrl);
+      return NextResponse.redirect(new URL("/dashboard", origin));
     }
   }
 
