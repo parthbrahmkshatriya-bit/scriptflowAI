@@ -6,13 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { VoiceoverPlayer } from "@/components/scripts/VoiceoverPlayer";
 import type { Scene } from "@/types/database";
+import type { Plan } from "@/types/database";
 
 interface Props {
   scene: Scene;
+  userPlan: Plan;
 }
 
-export default function SceneCard({ scene }: Props) {
+export default function SceneCard({ scene, userPlan }: Props) {
   const [copied, setCopied] = useState(false);
 
   async function copyPrompt() {
@@ -22,7 +25,6 @@ export default function SceneCard({ scene }: Props) {
       toast.success("Prompt copied!");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for older browsers
       const el = document.createElement("textarea");
       el.value = scene.ai_generation_prompt;
       document.body.appendChild(el);
@@ -71,16 +73,6 @@ export default function SceneCard({ scene }: Props) {
           <p className="text-sm">{scene.camera_direction}</p>
         </div>
 
-        {/* Voiceover */}
-        {scene.voiceover_text && (
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-              Voiceover
-            </p>
-            <p className="text-sm italic">&quot;{scene.voiceover_text}&quot;</p>
-          </div>
-        )}
-
         {/* On-screen text */}
         {scene.onscreen_text && (
           <div>
@@ -97,7 +89,9 @@ export default function SceneCard({ scene }: Props) {
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
               Music / SFX
             </p>
-            <p className="text-sm text-muted-foreground">{scene.suggested_music}</p>
+            <p className="text-sm text-muted-foreground">
+              {scene.suggested_music}
+            </p>
           </div>
         )}
 
@@ -124,6 +118,19 @@ export default function SceneCard({ scene }: Props) {
             </p>
           </div>
         </div>
+
+        {/* Voiceover — generate + player at bottom */}
+        {scene.voiceover_text && (
+          <>
+            <Separator />
+            <VoiceoverPlayer
+              voiceoverText={scene.voiceover_text}
+              sceneNumber={scene.scene_number}
+              sceneId={scene.id}
+              userPlan={userPlan}
+            />
+          </>
+        )}
       </CardContent>
     </Card>
   );

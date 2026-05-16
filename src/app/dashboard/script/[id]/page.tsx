@@ -36,11 +36,20 @@ export default async function ScriptPage({ params }: Props) {
 
   if (!script) notFound();
 
-  const { data: scenes } = await supabase
-    .from("scenes")
-    .select("*")
-    .eq("script_id", id)
-    .order("scene_number", { ascending: true });
+  const [{ data: scenes }, { data: profile }] = await Promise.all([
+    supabase
+      .from("scenes")
+      .select("*")
+      .eq("script_id", id)
+      .order("scene_number", { ascending: true }),
+    supabase
+      .from("users")
+      .select("plan")
+      .eq("id", user.id)
+      .single(),
+  ]);
+
+  const userPlan = (profile?.plan ?? "free") as import("@/types/database").Plan;
 
   const allPrompts = (scenes ?? [])
     .map((s, i) => `Scene ${i + 1}: ${s.ai_generation_prompt}`)
@@ -102,7 +111,7 @@ export default async function ScriptPage({ params }: Props) {
       {/* Scene cards */}
       <div className="space-y-4">
         {(scenes ?? []).map((scene) => (
-          <SceneCard key={scene.id} scene={scene} />
+          <SceneCard key={scene.id} scene={scene} userPlan={userPlan} />
         ))}
       </div>
     </div>
