@@ -1,33 +1,35 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+  weight: ["400", "500", "700"],
 });
 
 const BASE_URL = "https://scriptflow-ai-omega.vercel.app";
 
 export const viewport: Viewport = {
-  themeColor: "#8B5CF6",
+  themeColor: "#00e5c0",
 };
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
     default:
-      "ScriptFlow AI — AI Video Script Generator for YouTube Shorts, Reels & TikTok",
+      "ScriptFlow AI — The Complete AI Video Studio for Viral Creators",
     template: "%s | ScriptFlow AI",
   },
   description:
-    "Turn any video idea into a production-ready scene-by-scene script in 10 seconds. Copy-paste AI prompts for VEO 3, Kling, Runway, and Pika. Free to start.",
+    "From idea to finished video — script, voiceover, and AI-generated scenes. Powered by Kling, VEO 3, and Runway. Built for Indian creators.",
   keywords: [
     "AI video script generator",
     "video script AI",
@@ -39,6 +41,8 @@ export const metadata: Metadata = {
     "AI video prompts",
     "scene-by-scene script",
     "short-form video script",
+    "AI video studio India",
+    "faceless YouTube channel",
   ],
   authors: [{ name: "ScriptFlow AI" }],
   creator: "ScriptFlow AI",
@@ -57,34 +61,32 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    locale: "en_US",
+    locale: "en_IN",
     url: BASE_URL,
     siteName: "ScriptFlow AI",
-    title:
-      "ScriptFlow AI — AI Video Script Generator for YouTube Shorts, Reels & TikTok",
+    title: "ScriptFlow AI — The Complete AI Video Studio for Viral Creators",
     description:
-      "Turn any video idea into a production-ready scene-by-scene script in 10 seconds. Copy-paste AI prompts for VEO 3, Kling, Runway, and Pika. Free to start.",
+      "From idea to finished video — script, voiceover, and AI-generated scenes. Powered by Kling, VEO 3, and Runway. Built for Indian creators.",
     images: [
       {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "ScriptFlow AI — AI Video Script Generator",
+        alt: "ScriptFlow AI — AI Video Studio",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title:
-      "ScriptFlow AI — AI Video Script Generator for YouTube Shorts, Reels & TikTok",
+    title: "ScriptFlow AI — The Complete AI Video Studio for Viral Creators",
     description:
-      "Turn any video idea into a production-ready scene-by-scene script in 10 seconds. Copy-paste AI prompts for VEO 3, Kling, Runway, and Pika. Free to start.",
+      "From idea to finished video — script, voiceover, and AI-generated scenes. Powered by Kling, VEO 3, and Runway. Built for Indian creators.",
     images: ["/opengraph-image"],
   },
   alternates: {
     canonical: BASE_URL,
     languages: {
-      "en": BASE_URL,
+      en: BASE_URL,
       "en-IN": BASE_URL,
     },
   },
@@ -96,9 +98,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark scroll-smooth">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground`}
+        className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans antialiased min-h-screen bg-background text-foreground`}
       >
         {children}
         <Toaster richColors position="top-right" />

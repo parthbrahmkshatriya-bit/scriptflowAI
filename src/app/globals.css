@@ -203,6 +203,12 @@
   50%       { box-shadow: 0 4px 56px -2px rgba(139, 92, 246, 0.95); }
 }
 
+/* Teal CTA pulse */
+@keyframes cta-teal-pulse {
+  0%, 100% { box-shadow: 0 4px 28px -6px rgba(0, 229, 192, 0.55); }
+  50%       { box-shadow: 0 4px 52px -2px rgba(0, 229, 192, 0.90); }
+}
+
 /* ══════════════════════════════════════════════════════════════════
    UTILITY CLASSES
 ══════════════════════════════════════════════════════════════════ */
@@ -240,6 +246,7 @@
 /* Float + pulse */
 .animate-float-bob { animation: float-bob 4.5s ease-in-out infinite; }
 .animate-cta-pulse { animation: cta-pulse 2.8s ease-in-out infinite; }
+.animate-teal-pulse { animation: cta-teal-pulse 2.8s ease-in-out infinite; }
 
 /* Dot-grid overlay */
 .dot-grid {
