@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getUserPlan, canUseVoiceover } from "@/lib/plan";
 
 const schema = z.object({
   text: z.string().min(1).max(5000),
@@ -34,22 +35,10 @@ export async function POST(request: Request) {
     const { text } = parsed.data;
 
     // Plan check
-    const { data: profile, error: profileError } = await supabase
-      .from("users")
-      .select("plan")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
-
-    if (profile.plan === "free") {
+    const plan = await getUserPlan(supabase, user.id);
+    if (!canUseVoiceover(plan)) {
       return NextResponse.json(
-        {
-          error:
-            "Voiceover generation requires a Creator or Pro plan. Please upgrade to continue.",
-        },
+        { error: "Voiceover generation requires a Creator or Pro plan. Please upgrade to continue." },
         { status: 403 }
       );
     }

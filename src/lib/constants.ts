@@ -4,12 +4,16 @@ export const PLAN_LIMITS: Record<Plan, number> = {
   free: 3,
   creator: 30,
   pro: Infinity,
+  studio: Infinity,
+  agency: Infinity,
 };
 
 export const PLAN_LABELS: Record<Plan, string> = {
   free: "Free",
   creator: "Creator",
   pro: "Pro",
+  studio: "Studio",
+  agency: "Agency",
 };
 
 // ── Early-bird launch pricing ────────────────────────────────────────
@@ -22,8 +26,10 @@ export const EARLY_BIRD_PRICING: Record<
   Exclude<Plan, "free">,
   { inr: number; usd: number }
 > = {
-  creator: { inr: 599, usd: 5 },  // 40% off ₹999 / $9
-  pro: { inr: 1199, usd: 11 },    // 40% off ₹1999 / $19
+  creator: { inr: 599, usd: 5 },   // 40% off ₹999 / $9
+  pro: { inr: 1199, usd: 11 },     // 40% off ₹1999 / $19
+  studio: { inr: 2999, usd: 29 },  // 40% off ₹4999 / $49
+  agency: { inr: 5999, usd: 59 },  // 40% off ₹9999 / $99
 };
 
 export const REGULAR_PRICING: Record<
@@ -32,17 +38,23 @@ export const REGULAR_PRICING: Record<
 > = {
   creator: { inr: 999, usd: 9 },
   pro: { inr: 1999, usd: 19 },
+  studio: { inr: 4999, usd: 49 },
+  agency: { inr: 9999, usd: 99 },
 };
 
 // Legacy — kept for backwards compatibility; prefer REGULAR_PRICING above
 export const PRICING_USD: Record<Exclude<Plan, "free">, number> = {
   creator: 9,
   pro: 19,
+  studio: 49,
+  agency: 99,
 };
 
 export const PRICING_INR: Record<Exclude<Plan, "free">, number> = {
   creator: 999,
   pro: 1999,
+  studio: 4999,
+  agency: 9999,
 };
 
 export const DURATION_OPTIONS: { value: VideoDuration; label: string; scenes: string }[] = [

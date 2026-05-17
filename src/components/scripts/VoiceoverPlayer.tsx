@@ -86,7 +86,7 @@ export function VoiceoverPlayer({
     a.click();
   }
 
-  const isPaidPlan = userPlan === "creator" || userPlan === "pro";
+  const isPaidPlan = ["creator", "pro", "studio", "agency"].includes(userPlan);
 
   return (
     <div className="space-y-2.5 pt-1">

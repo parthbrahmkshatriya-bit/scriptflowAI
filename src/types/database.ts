@@ -1,4 +1,4 @@
-export type Plan = "free" | "creator" | "pro";
+export type Plan = "free" | "creator" | "pro" | "studio" | "agency";
 export type SubscriptionStatus = "active" | "cancelled" | "past_due" | "none";
 export type PaymentProvider = "stripe" | "razorpay";
 export type VideoDuration = "15s" | "30s" | "60s";

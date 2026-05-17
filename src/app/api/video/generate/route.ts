@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { fal } from "@fal-ai/client";
 import { createClient } from "@/lib/supabase/server";
+import { getUserPlan, canUseVideoGeneration } from "@/lib/plan";
 
 export const maxDuration = 120;
 
@@ -41,20 +42,11 @@ export async function POST(request: Request) {
     }
     const { sceneId, prompt } = parsed.data;
 
-    // Plan check — free and creator cannot access video generation
-    const { data: profile, error: profileError } = await supabase
-      .from("users")
-      .select("plan")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
-
-    if (profile.plan === "free" || profile.plan === "creator") {
+    // Plan check — only studio and agency can generate videos
+    const plan = await getUserPlan(supabase, user.id);
+    if (!canUseVideoGeneration(plan)) {
       return NextResponse.json(
-        { error: "Video generation requires a Pro plan. Please upgrade to continue." },
+        { error: "Video generation requires a Studio or Agency plan. Please upgrade to continue." },
         { status: 403 }
       );
     }

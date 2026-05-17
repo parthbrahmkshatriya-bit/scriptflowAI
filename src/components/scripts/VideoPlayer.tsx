@@ -73,7 +73,7 @@ export function VideoPlayer({ prompt, sceneNumber, sceneId, userPlan }: Props) {
     a.click();
   }
 
-  const isProPlan = userPlan !== "free" && userPlan !== "creator";
+  const isProPlan = ["studio", "agency"].includes(userPlan);
 
   return (
     <div className="space-y-2.5 pt-1">
