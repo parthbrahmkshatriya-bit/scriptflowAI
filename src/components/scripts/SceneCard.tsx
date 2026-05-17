@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { VoiceoverPlayer } from "@/components/scripts/VoiceoverPlayer";
-import type { Scene } from "@/types/database";
-import type { Plan } from "@/types/database";
+import { VideoPlayer } from "@/components/scripts/VideoPlayer";
+import type { Scene, Plan } from "@/types/database";
 
 interface Props {
   scene: Scene;
@@ -119,7 +119,7 @@ export default function SceneCard({ scene, userPlan }: Props) {
           </div>
         </div>
 
-        {/* Voiceover — generate + player at bottom */}
+        {/* Voiceover — generate + player */}
         {scene.voiceover_text && (
           <>
             <Separator />
@@ -131,6 +131,15 @@ export default function SceneCard({ scene, userPlan }: Props) {
             />
           </>
         )}
+
+        {/* Video generation — Kling 2.0 */}
+        <Separator />
+        <VideoPlayer
+          prompt={scene.ai_generation_prompt}
+          sceneNumber={scene.scene_number}
+          sceneId={scene.id}
+          userPlan={userPlan}
+        />
       </CardContent>
     </Card>
   );

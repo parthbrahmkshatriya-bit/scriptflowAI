@@ -1,105 +1,94 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Download, Loader2, Mic, RefreshCw } from "lucide-react";
+import { Download, Loader2, Video, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Plan } from "@/types/database";
 
 interface Props {
-  voiceoverText: string;
+  prompt: string;
   sceneNumber: number;
   sceneId: string;
   userPlan: Plan;
 }
 
-export function VoiceoverPlayer({
-  voiceoverText,
-  sceneNumber,
-  sceneId,
-  userPlan,
-}: Props) {
+export function VideoPlayer({ prompt, sceneNumber, sceneId, userPlan }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevAudioUrl = useRef<string | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
-      if (prevAudioUrl.current) URL.revokeObjectURL(prevAudioUrl.current);
-      if (errorTimer.current) clearTimeout(errorTimer.current);
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
     };
   }, []);
 
   async function generate() {
     setIsGenerating(true);
     setError(null);
-    if (errorTimer.current) clearTimeout(errorTimer.current);
+    setElapsedSeconds(0);
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+
+    timerRef.current = setInterval(() => {
+      setElapsedSeconds((s) => s + 1);
+    }, 1000);
 
     try {
-      const res = await fetch("/api/voiceover", {
+      const res = await fetch("/api/video/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: voiceoverText, sceneId }),
+        body: JSON.stringify({ sceneId, prompt }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(
-          data.error ?? "Voiceover generation failed. Please try again."
-        );
+        throw new Error(data.error ?? "Video generation failed. Please try again.");
       }
 
-      // base64 → blob → object URL
-      const binary = atob(data.audio as string);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], {
-        type: (data.contentType as string) ?? "audio/mpeg",
-      });
-
-      // Revoke old URL before replacing
-      if (audioUrl) {
-        prevAudioUrl.current = audioUrl;
-        URL.revokeObjectURL(audioUrl);
-      }
-
-      setAudioUrl(URL.createObjectURL(blob));
+      setVideoUrl(data.videoUrl as string);
     } catch (err) {
       const msg =
-        err instanceof Error
-          ? err.message
-          : "Voiceover generation failed. Please try again.";
+        err instanceof Error ? err.message : "Video generation failed. Please try again.";
       setError(msg);
-      errorTimer.current = setTimeout(() => setError(null), 5000);
+      errorTimerRef.current = setTimeout(() => setError(null), 8000);
     } finally {
       setIsGenerating(false);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     }
   }
 
   function download() {
-    if (!audioUrl) return;
+    if (!videoUrl) return;
     const a = document.createElement("a");
-    a.href = audioUrl;
-    a.download = `scriptflow-scene-${sceneNumber}-voiceover.mp3`;
+    a.href = videoUrl;
+    a.download = `scriptflow-scene-${sceneNumber}-kling.mp4`;
     a.click();
   }
 
-  const isPaidPlan = userPlan === "creator" || userPlan === "pro";
+  const isProPlan = userPlan !== "free" && userPlan !== "creator";
 
   return (
     <div className="space-y-2.5 pt-1">
       <p className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wide">
-        Voiceover
-      </p>
-      <p className="text-sm italic text-muted-foreground">
-        &quot;{voiceoverText}&quot;
+        AI Video
       </p>
 
-      {/* Buttons */}
+      {/* Prompt preview — read-only, truncated */}
+      <p className="text-xs text-zinc-500 font-mono leading-relaxed line-clamp-2 select-all">
+        {prompt}
+      </p>
+
+      {/* Buttons row */}
       <div className="flex items-center gap-2 flex-wrap">
-        {isPaidPlan ? (
+        {isProPlan ? (
           <button
             onClick={generate}
             disabled={isGenerating}
@@ -112,17 +101,17 @@ export function VoiceoverPlayer({
             {isGenerating ? (
               <>
                 <Loader2 className="size-3.5 animate-spin" />
-                Generating...
+                Generating... {elapsedSeconds}s
               </>
-            ) : audioUrl ? (
+            ) : videoUrl ? (
               <>
                 <RefreshCw className="size-3.5" />
                 Regenerate
               </>
             ) : (
               <>
-                <Mic className="size-3.5" />
-                Generate Voiceover
+                <Video className="size-3.5" />
+                Generate with Kling 2.0
               </>
             )}
           </button>
@@ -132,15 +121,15 @@ export function VoiceoverPlayer({
               disabled
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-xs font-medium text-zinc-600 cursor-not-allowed"
             >
-              <Mic className="size-3.5" />
-              Generate Voiceover
+              <Video className="size-3.5" />
+              Generate with Kling 2.0
             </button>
-            {/* Tooltip */}
-            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-20 w-56 pointer-events-none">
+            {/* Upgrade tooltip */}
+            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-20 w-60 pointer-events-none">
               <div className="rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-xs text-zinc-300 shadow-xl">
-                Upgrade to Creator plan to unlock voiceover.{" "}
+                Upgrade to Pro plan to generate videos.{" "}
                 <a
-                  href="/dashboard/upgrade"
+                  href="/pricing"
                   className="text-[#00e5c0] hover:underline pointer-events-auto"
                 >
                   Upgrade now →
@@ -151,31 +140,32 @@ export function VoiceoverPlayer({
           </div>
         )}
 
-        {audioUrl && (
+        {videoUrl && (
           <button
             onClick={download}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/15 text-xs font-medium text-zinc-400 hover:text-white hover:border-white/30 transition-all duration-200"
           >
             <Download className="size-3.5" />
-            Download MP3
+            Download MP4
           </button>
         )}
       </div>
 
       {/* Error */}
-      {error && (
-        <p className="text-xs text-red-400">{error}</p>
-      )}
+      {error && <p className="text-xs text-red-400">{error}</p>}
 
-      {/* Audio player */}
-      {audioUrl && (
-        <div className="rounded-lg border border-[#00e5c0]/20 bg-[#00e5c0]/[0.04] px-3 py-2.5">
-          {/* Audio is AI-generated speech, no caption track */}
-          <audio
-            src={audioUrl}
+      {/* Video player — 9:16 container */}
+      {videoUrl && (
+        <div className="rounded-xl border border-[#00e5c0]/20 bg-black overflow-hidden">
+            {/* Video has no dialogue track — captions not applicable */}
+          <video
+            src={videoUrl}
+            autoPlay
+            muted
+            loop
             controls
-            className="w-full h-8"
-            style={{ accentColor: "#00e5c0" }}
+            className="w-full"
+            style={{ aspectRatio: "9/16", maxHeight: "400px", objectFit: "cover" }}
           />
         </div>
       )}
