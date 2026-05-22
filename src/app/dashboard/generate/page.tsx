@@ -377,7 +377,7 @@ export default function GeneratePage() {
                   }`}
                 >
                   <span className="font-semibold">{opt.label}</span>
-                  <span className="text-xs text-muted-foreground mt-0.5">{opt.scenes}</span>
+                  <span className="text-xs text-muted-foreground mt-0.5">{opt.estimatedScenes}</span>
                 </Label>
               </div>
             ))}
