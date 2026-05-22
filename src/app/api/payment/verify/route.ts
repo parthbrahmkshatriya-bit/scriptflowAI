@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Plan } from "@/types/database";
+import type { SubscriptionPlan } from "@/types/database";
 
 function verifyRazorpaySignature(
   orderId: string,
@@ -34,18 +34,20 @@ export async function POST(request: Request) {
       razorpay_payment_id,
       razorpay_signature,
       plan,
+      billingCycle,
     }: {
       razorpay_order_id: string;
       razorpay_payment_id: string;
       razorpay_signature: string;
-      plan: Plan;
+      plan: SubscriptionPlan;
+      billingCycle?: "monthly" | "annual";
     } = body;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json({ error: "Missing payment fields" }, { status: 422 });
     }
 
-    if (plan !== "creator" && plan !== "pro") {
+    if (!["creator", "studio", "agency"].includes(plan)) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 422 });
     }
 
@@ -61,9 +63,9 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient();
     const now = new Date();
-    const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const daysToAdd = billingCycle === "annual" ? 365 : 30;
+    const periodEnd = new Date(now.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
 
-    // Create subscription record
     await admin.from("subscriptions").insert({
       user_id: user.id,
       provider: "razorpay",
@@ -75,7 +77,6 @@ export async function POST(request: Request) {
       cancel_at_period_end: false,
     });
 
-    // Update user plan
     await admin
       .from("users")
       .update({

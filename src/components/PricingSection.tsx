@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from 'react';
 import PayPalCheckoutButton from '@/components/PayPalCheckoutButton';
 import { PRICING_TIERS } from '@/lib/constants';
 import { isIndianUser } from '@/lib/location';
+import type { SubscriptionPlan } from '@/types/database';
 
 type BillingCycle = 'monthly' | 'annual';
 
@@ -12,10 +13,23 @@ type StatusMessage = {
   text: string;
 };
 
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') { resolve(false); return; }
+    if (document.querySelector('script[src*="razorpay"]')) { resolve(true); return; }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 export default function PricingSection() {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [isIndia, setIsIndia] = useState(false);
   const [status, setStatus] = useState<StatusMessage | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   useEffect(() => {
     setIsIndia(isIndianUser());
@@ -30,6 +44,82 @@ export default function PricingSection() {
 
   const handleError = (error: string) => {
     setStatus({ type: 'error', text: error });
+  };
+
+  const handleRazorpayPayment = async (plan: SubscriptionPlan, planName: string) => {
+    setLoadingPlan(plan);
+    setStatus(null);
+
+    const loaded = await loadRazorpayScript();
+    if (!loaded) {
+      setStatus({ type: 'error', text: 'Razorpay failed to load. Please try again.' });
+      setLoadingPlan(null);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/payment/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, billingCycle }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        setStatus({ type: 'error', text: err.error || 'Failed to create order.' });
+        setLoadingPlan(null);
+        return;
+      }
+
+      const { order_id, amount, currency, key_id } = await res.json();
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const razorpay = new (window as any).Razorpay({
+        key: key_id,
+        amount,
+        currency,
+        name: 'ScriptFlow AI',
+        description: `${planName} Plan — ${billingCycle === 'annual' ? 'Annual' : 'Monthly'}`,
+        order_id,
+        handler: async (response: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) => {
+          const verifyRes = await fetch('/api/payment/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              plan,
+              billingCycle,
+            }),
+          });
+          const result = await verifyRes.json();
+          if (result.success) {
+            handleSuccess(planName);
+          } else {
+            handleError(result.error || 'Payment verification failed.');
+          }
+        },
+        modal: {
+          ondismiss: () => setLoadingPlan(null),
+        },
+        theme: { color: '#0ea5e9' },
+      });
+
+      razorpay.on('payment.failed', () => {
+        handleError('Payment failed. Please try again or contact support.');
+        setLoadingPlan(null);
+      });
+
+      razorpay.open();
+    } catch {
+      setStatus({ type: 'error', text: 'Connection error. Please check your internet.' });
+      setLoadingPlan(null);
+    }
   };
 
   return (
@@ -80,8 +170,9 @@ export default function PricingSection() {
             : billingCycle === 'monthly'
             ? tier.usdMonthly
             : tier.usdAnnual;
-          const currency = isIndia ? 'Γé╣' : '$';
+          const currency = isIndia ? '₹' : '$';
           const period = billingCycle === 'monthly' ? '/mo' : '/yr';
+          const isPaid = tier.plan !== 'free';
 
           return (
             <div
@@ -95,7 +186,7 @@ export default function PricingSection() {
                   <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-300">{tier.name}</p>
                   <p className="mt-4 text-3xl font-semibold text-white">
                     {currency}{price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    <span className="text-base font-medium text-zinc-400">{tier.plan === 'free' ? '' : period}</span>
+                    <span className="text-base font-medium text-zinc-400">{isPaid ? period : ''}</span>
                   </p>
                 </div>
               </div>
@@ -112,31 +203,30 @@ export default function PricingSection() {
               </ul>
 
               <div className="mt-8">
-                {tier.plan === 'free' ? (
+                {!isPaid ? (
                   <button
                     type="button"
                     className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-sky-50"
-                    onClick={() => {
-                      window.location.href = '/signup';
-                    }}
+                    onClick={() => { window.location.href = '/signup'; }}
                   >
                     Start Free
                   </button>
                 ) : isIndia ? (
                   <button
                     type="button"
-                    className="w-full rounded-2xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-400"
-                    onClick={() =>
-                      setStatus({
-                        type: 'error',
-                        text: 'Razorpay checkout is not configured in this branch yet.',
-                      })
-                    }
+                    disabled={loadingPlan === tier.plan}
+                    className="w-full rounded-2xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:opacity-60 disabled:cursor-not-allowed"
+                    onClick={() => handleRazorpayPayment(tier.plan as SubscriptionPlan, tier.name)}
                   >
-                    Pay with Razorpay
+                    {loadingPlan === tier.plan ? 'Loading...' : 'Pay with Razorpay'}
                   </button>
                 ) : (
-                  <PayPalCheckoutButton plan={tier.plan as 'creator' | 'studio' | 'agency'} billingCycle={billingCycle} onSuccess={() => handleSuccess(tier.name)} onError={handleError} />
+                  <PayPalCheckoutButton
+                    plan={tier.plan as 'creator' | 'studio' | 'agency'}
+                    billingCycle={billingCycle}
+                    onSuccess={() => handleSuccess(tier.name)}
+                    onError={handleError}
+                  />
                 )}
               </div>
             </div>
@@ -146,8 +236,8 @@ export default function PricingSection() {
 
       <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-zinc-300">
         {isIndia
-          ? 'Secure payments via Razorpay ≡ƒç«≡ƒç│'
-          : 'Secure payments via PayPal ≡ƒîì'}
+          ? 'Secure payments via Razorpay 🇮🇳'
+          : 'Secure payments via PayPal 🌍'}
       </div>
 
       {status ? (
