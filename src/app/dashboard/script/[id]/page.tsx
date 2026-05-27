@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -7,10 +8,12 @@ import {
   VISUAL_STYLE_LABELS,
   AI_TOOL_LABELS,
 } from "@/lib/constants";
-import type { Platform, VisualStyle, AiTool } from "@/types/database";
+import type { Platform, VisualStyle, AiTool, Plan } from "@/types/database";
 import ScriptActions from "@/components/scripts/ScriptActions";
 import SceneCard from "@/components/scripts/SceneCard";
 import CopyAllButton from "@/components/scripts/CopyAllButton";
+
+const PAID_PLANS: Plan[] = ["creator", "studio", "agency", "pro"];
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +29,15 @@ export default async function ScriptPage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  // Fetch user plan to determine voiceover access
+  const admin = createAdminClient();
+  const { data: userProfile } = await admin
+    .from("users")
+    .select("plan")
+    .eq("id", user.id)
+    .single();
+  const canGenerateVoiceover = PAID_PLANS.includes((userProfile?.plan ?? "free") as Plan);
 
   const { data: script } = await supabase
     .from("scripts")
@@ -102,7 +114,7 @@ export default async function ScriptPage({ params }: Props) {
       {/* Scene cards */}
       <div className="space-y-4">
         {(scenes ?? []).map((scene) => (
-          <SceneCard key={scene.id} scene={scene} />
+          <SceneCard key={scene.id} scene={scene} canGenerateVoiceover={canGenerateVoiceover} />
         ))}
       </div>
     </div>
