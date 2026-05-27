@@ -368,7 +368,7 @@ export const EARLY_BIRD_ACTIVE = false;
 export const EARLY_BIRD_TOTAL = 100;
 export const EARLY_BIRD_CLAIMED = 0;
 
-export const CLAUDE_MODEL = 'claude-3.5';
+export const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 
 export function getUserScriptLimit(plan: UserPlan): number {
   return USAGE_LIMITS[plan];
