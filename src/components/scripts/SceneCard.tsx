@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,23 +11,121 @@ import type { Scene } from "@/types/database";
 interface Props {
   scene: Scene;
   canGenerateVoiceover?: boolean;
+  onChange?: (updated: Scene) => void;
 }
 
-export default function SceneCard({ scene, canGenerateVoiceover = false }: Props) {
+// Editable fields users can click to modify
+type EditableField =
+  | "visual_description"
+  | "camera_direction"
+  | "voiceover_text"
+  | "onscreen_text"
+  | "ai_generation_prompt";
+
+function EditableText({
+  value,
+  placeholder,
+  onChange,
+  mono = false,
+  italic = false,
+  className = "",
+}: {
+  value: string | null;
+  placeholder: string;
+  onChange: (val: string) => void;
+  mono?: boolean;
+  italic?: boolean;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function startEdit() {
+    setEditing(true);
+    // Focus after render
+    setTimeout(() => {
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        el.selectionStart = el.value.length;
+      }
+    }, 0);
+  }
+
+  function commit() {
+    setEditing(false);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Escape") {
+      setEditing(false);
+    }
+  }
+
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }
+
+  if (editing) {
+    return (
+      <textarea
+        ref={textareaRef}
+        defaultValue={value ?? ""}
+        className={`w-full resize-none rounded-md border border-primary/40 bg-background px-2 py-1 text-sm outline-none focus:ring-1 focus:ring-primary ${mono ? "font-mono" : ""} ${italic ? "italic" : ""} ${className}`}
+        rows={3}
+        onInput={(e) => autoResize(e.currentTarget)}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={commit}
+        onKeyDown={handleKeyDown}
+      />
+    );
+  }
+
+  const display = value?.trim() || placeholder;
+  const isEmpty = !value?.trim();
+
+  return (
+    <p
+      onClick={startEdit}
+      title="Click to edit"
+      className={`cursor-text rounded px-1 -mx-1 text-sm hover:bg-muted/50 transition-colors min-h-[1.5rem] ${
+        mono ? "font-mono whitespace-pre-wrap leading-relaxed" : ""
+      } ${italic ? "italic" : ""} ${isEmpty ? "text-muted-foreground/50" : ""} ${className}`}
+    >
+      {display}
+    </p>
+  );
+}
+
+export default function SceneCard({ scene, canGenerateVoiceover = false, onChange }: Props) {
+  const [local, setLocal] = useState<Scene>(scene);
   const [copied, setCopied] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [generatingAudio, setGeneratingAudio] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const updateField = useCallback(
+    (field: EditableField, value: string) => {
+      const updated: Scene = {
+        ...local,
+        [field]: value === "" && (field === "voiceover_text" || field === "onscreen_text") ? null : value,
+      };
+      setLocal(updated);
+      onChange?.(updated);
+    },
+    [local, onChange]
+  );
+
   async function copyPrompt() {
     try {
-      await navigator.clipboard.writeText(scene.ai_generation_prompt);
+      await navigator.clipboard.writeText(local.ai_generation_prompt);
       setCopied(true);
       toast.success("Prompt copied!");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       const el = document.createElement("textarea");
-      el.value = scene.ai_generation_prompt;
+      el.value = local.ai_generation_prompt;
       document.body.appendChild(el);
       el.select();
       document.execCommand("copy");
@@ -39,13 +137,13 @@ export default function SceneCard({ scene, canGenerateVoiceover = false }: Props
   }
 
   async function generateVoiceover() {
-    if (!scene.voiceover_text) return;
+    if (!local.voiceover_text) return;
     setGeneratingAudio(true);
     try {
       const res = await fetch("/api/voiceover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: scene.voiceover_text }),
+        body: JSON.stringify({ text: local.voiceover_text }),
       });
 
       if (!res.ok) {
@@ -56,7 +154,6 @@ export default function SceneCard({ scene, canGenerateVoiceover = false }: Props
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      // Revoke old URL if any
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       setAudioUrl(url);
       toast.success("Voiceover ready!");
@@ -71,36 +168,40 @@ export default function SceneCard({ scene, canGenerateVoiceover = false }: Props
     if (!audioUrl) return;
     const a = document.createElement("a");
     a.href = audioUrl;
-    a.download = `scene-${scene.scene_number}-voiceover.mp3`;
+    a.download = `scene-${local.scene_number}-voiceover.mp3`;
     a.click();
   }
 
   return (
     <Card>
       <CardHeader className="pb-2 pt-4 px-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Badge variant="default" className="text-xs px-2">
-              Scene {scene.scene_number}
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              {scene.duration_seconds}s
+        <div className="flex items-center gap-2">
+          <Badge variant="default" className="text-xs px-2">
+            Scene {local.scene_number}
+          </Badge>
+          <span className="text-xs text-muted-foreground">{local.duration_seconds}s</span>
+          {local.transition && (
+            <span className="text-xs text-muted-foreground">→ {local.transition}</span>
+          )}
+          {onChange && (
+            <span className="ml-auto text-[10px] text-muted-foreground/50 select-none">
+              click any field to edit
             </span>
-            {scene.transition && (
-              <span className="text-xs text-muted-foreground">
-                → {scene.transition}
-              </span>
-            )}
-          </div>
+          )}
         </div>
       </CardHeader>
+
       <CardContent className="px-4 pb-4 space-y-3">
         {/* Visual description */}
         <div>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
             Visual
           </p>
-          <p className="text-sm">{scene.visual_description}</p>
+          <EditableText
+            value={local.visual_description}
+            placeholder="Describe what the viewer sees…"
+            onChange={(v) => updateField("visual_description", v)}
+          />
         </div>
 
         {/* Camera */}
@@ -108,89 +209,85 @@ export default function SceneCard({ scene, canGenerateVoiceover = false }: Props
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
             Camera
           </p>
-          <p className="text-sm">{scene.camera_direction}</p>
+          <EditableText
+            value={local.camera_direction}
+            placeholder="Camera angle, movement, framing…"
+            onChange={(v) => updateField("camera_direction", v)}
+          />
         </div>
 
         {/* Voiceover */}
-        {scene.voiceover_text && (
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Voiceover
-              </p>
-              {canGenerateVoiceover && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-6 text-xs px-2 gap-1"
-                  onClick={generateVoiceover}
-                  disabled={generatingAudio}
-                >
-                  {generatingAudio ? (
-                    <>
-                      <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />
-                      Generating…
-                    </>
-                  ) : (
-                    <>🎙 Generate Audio</>
-                  )}
-                </Button>
-              )}
-            </div>
-            <p className="text-sm italic">&quot;{scene.voiceover_text}&quot;</p>
-
-            {/* Audio player */}
-            {audioUrl && (
-              <div className="mt-2 flex items-center gap-2">
-                <audio
-                  ref={audioRef}
-                  src={audioUrl}
-                  controls
-                  className="h-8 flex-1 min-w-0"
-                />
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 text-xs px-2 shrink-0"
-                  onClick={downloadAudio}
-                >
-                  ↓ MP3
-                </Button>
-              </div>
-            )}
-
-            {/* Upgrade nudge for free users */}
-            {!canGenerateVoiceover && scene.voiceover_text && (
-              <p className="text-xs text-muted-foreground mt-1">
-                🎙 <a href="/dashboard/upgrade" className="underline hover:text-foreground">Upgrade to Creator</a> to generate audio
-              </p>
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Voiceover
+            </p>
+            {canGenerateVoiceover && local.voiceover_text && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-xs px-2 gap-1"
+                onClick={generateVoiceover}
+                disabled={generatingAudio}
+              >
+                {generatingAudio ? (
+                  <>
+                    <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />
+                    Generating…
+                  </>
+                ) : (
+                  <>🎙 Generate Audio</>
+                )}
+              </Button>
             )}
           </div>
-        )}
+          <EditableText
+            value={local.voiceover_text}
+            placeholder="Add voiceover narration…"
+            onChange={(v) => updateField("voiceover_text", v)}
+            italic
+          />
+          {audioUrl && (
+            <div className="mt-2 flex items-center gap-2">
+              <audio ref={audioRef} src={audioUrl} controls className="h-8 flex-1 min-w-0" />
+              <Button size="sm" variant="ghost" className="h-8 text-xs px-2 shrink-0" onClick={downloadAudio}>
+                ↓ MP3
+              </Button>
+            </div>
+          )}
+          {!canGenerateVoiceover && (
+            <p className="text-xs text-muted-foreground mt-1">
+              🎙 <a href="/dashboard/upgrade" className="underline hover:text-foreground">Upgrade to Creator</a> to generate audio
+            </p>
+          )}
+        </div>
 
         {/* On-screen text */}
-        {scene.onscreen_text && (
-          <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-              Text Overlay
-            </p>
-            <p className="text-sm font-medium">{scene.onscreen_text}</p>
-          </div>
-        )}
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+            Text Overlay
+          </p>
+          <EditableText
+            value={local.onscreen_text}
+            placeholder="Short text overlay (max 10 words)…"
+            onChange={(v) => updateField("onscreen_text", v)}
+            className="font-medium"
+          />
+        </div>
 
         {/* Music */}
-        {scene.suggested_music && (
+        {local.suggested_music && (
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
               Music / SFX
             </p>
-            <p className="text-sm text-muted-foreground">{scene.suggested_music}</p>
+            <p className="text-sm text-muted-foreground">{local.suggested_music}</p>
           </div>
         )}
 
         <Separator />
 
-        {/* AI Generation Prompt (highlighted) */}
+        {/* AI Generation Prompt */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-primary uppercase tracking-wide">
@@ -206,9 +303,12 @@ export default function SceneCard({ scene, canGenerateVoiceover = false }: Props
             </Button>
           </div>
           <div className="bg-muted/60 rounded-md p-3 border border-primary/20">
-            <p className="text-sm font-mono leading-relaxed whitespace-pre-wrap">
-              {scene.ai_generation_prompt}
-            </p>
+            <EditableText
+              value={local.ai_generation_prompt}
+              placeholder="AI generation prompt…"
+              onChange={(v) => updateField("ai_generation_prompt", v)}
+              mono
+            />
           </div>
         </div>
       </CardContent>

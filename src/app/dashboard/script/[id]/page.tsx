@@ -2,7 +2,6 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   PLATFORM_LABELS,
   VISUAL_STYLE_LABELS,
@@ -10,8 +9,7 @@ import {
 } from "@/lib/constants";
 import type { Platform, VisualStyle, AiTool, Plan } from "@/types/database";
 import ScriptActions from "@/components/scripts/ScriptActions";
-import SceneCard from "@/components/scripts/SceneCard";
-import CopyAllButton from "@/components/scripts/CopyAllButton";
+import ScriptEditor from "@/components/scripts/ScriptEditor";
 
 const PAID_PLANS: Plan[] = ["creator", "studio", "agency", "pro"];
 
@@ -53,10 +51,6 @@ export default async function ScriptPage({ params }: Props) {
     .select("*")
     .eq("script_id", id)
     .order("scene_number", { ascending: true });
-
-  const allPrompts = (scenes ?? [])
-    .map((s, i) => `Scene ${i + 1}: ${s.ai_generation_prompt}`)
-    .join("\n\n");
 
   function formatDate(dateStr: string) {
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -104,19 +98,11 @@ export default async function ScriptPage({ params }: Props) {
         </p>
       </div>
 
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-lg">Scenes</h2>
-        <CopyAllButton text={allPrompts} />
-      </div>
-
-      <Separator />
-
-      {/* Scene cards */}
-      <div className="space-y-4">
-        {(scenes ?? []).map((scene) => (
-          <SceneCard key={scene.id} scene={scene} canGenerateVoiceover={canGenerateVoiceover} />
-        ))}
-      </div>
+      <ScriptEditor
+        scriptId={id}
+        initialScenes={scenes ?? []}
+        canGenerateVoiceover={canGenerateVoiceover}
+      />
     </div>
   );
 }
