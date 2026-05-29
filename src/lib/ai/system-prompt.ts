@@ -67,7 +67,7 @@ Output ONLY valid JSON matching this exact schema. No markdown, no explanation, 
       "duration_seconds": number,
       "visual_description": "string — what the viewer sees",
       "camera_direction": "string — angle, movement, framing",
-      "voiceover_text": "string or null — natural conversational narration",
+      "voiceover_text": "string — natural conversational narration (REQUIRED for every scene, never null)",
       "onscreen_text": "string or null — max 10 words for text overlay",
       "ai_generation_prompt": "string — tool-specific prompt (see rules below)",
       "suggested_music": "string or null — music/SFX mood description",
@@ -83,7 +83,7 @@ RULES:
 4. Scene 1 MUST hook the viewer in the first 2 seconds — start with action, not setup
 5. Final scene MUST include a call-to-action or memorable punchline
 6. onscreen_text: maximum 10 words per scene, null if not needed
-7. voiceover_text: natural, conversational, NOT robotic
+7. voiceover_text: REQUIRED on every scene — natural, conversational, NOT robotic. Even scene 1 must have voiceover (a punchy hook line works great)
 8. All content is for vertical 9:16 format
 
 AI GENERATION PROMPT FORMAT (for field "ai_generation_prompt"):
