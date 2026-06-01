@@ -313,10 +313,18 @@ export const PLAN_LABELS: Record<string, string> = {
 
 export const PLAN_LIMITS: Record<string, number> = {
   free: 3,
-  creator: 15,
-  studio: 20,
+  creator: 30,
+  studio: Infinity,
   pro: Infinity,
   agency: Infinity,
+};
+
+export const VIDEO_LIMITS: Record<string, number> = {
+  free: 0,
+  creator: 15,
+  studio: 50,
+  pro: 15,
+  agency: 150,
 };
 
 export const PLATFORM_LABELS: Record<string, string> = {

@@ -10,6 +10,7 @@ import {
 import type { Platform, VisualStyle, AiTool, Plan } from "@/types/database";
 import ScriptActions from "@/components/scripts/ScriptActions";
 import ScriptEditor from "@/components/scripts/ScriptEditor";
+import { VIDEO_LIMITS } from "@/lib/constants";
 
 const PAID_PLANS: Plan[] = ["creator", "studio", "agency", "pro"];
 
@@ -32,10 +33,14 @@ export default async function ScriptPage({ params }: Props) {
   const admin = createAdminClient();
   const { data: userProfile } = await admin
     .from("users")
-    .select("plan")
+    .select("plan, videos_used_this_month")
     .eq("id", user.id)
     .single();
-  const canGenerateVoiceover = PAID_PLANS.includes((userProfile?.plan ?? "free") as Plan);
+  const plan = (userProfile?.plan ?? "free") as Plan;
+  const canGenerateVoiceover = PAID_PLANS.includes(plan);
+  const videosUsed = userProfile?.videos_used_this_month ?? 0;
+  const videoLimit = VIDEO_LIMITS[plan] ?? 0;
+  const canGenerateVideo = videoLimit > 0 && videosUsed < videoLimit;
 
   const { data: script } = await supabase
     .from("scripts")
@@ -102,6 +107,7 @@ export default async function ScriptPage({ params }: Props) {
         scriptId={id}
         initialScenes={scenes ?? []}
         canGenerateVoiceover={canGenerateVoiceover}
+        canGenerateVideo={canGenerateVideo}
       />
     </div>
   );

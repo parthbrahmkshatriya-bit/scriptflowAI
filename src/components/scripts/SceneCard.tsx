@@ -11,6 +11,7 @@ import type { Scene } from "@/types/database";
 interface Props {
   scene: Scene;
   canGenerateVoiceover?: boolean;
+  canGenerateVideo?: boolean;
   onChange?: (updated: Scene) => void;
 }
 
@@ -98,12 +99,17 @@ function EditableText({
   );
 }
 
-export default function SceneCard({ scene, canGenerateVoiceover = false, onChange }: Props) {
+type VideoStatus = "idle" | "submitting" | "queued" | "processing" | "done" | "failed";
+
+export default function SceneCard({ scene, canGenerateVoiceover = false, canGenerateVideo = false, onChange }: Props) {
   const [local, setLocal] = useState<Scene>(scene);
   const [copied, setCopied] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [generatingAudio, setGeneratingAudio] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [videoStatus, setVideoStatus] = useState<VideoStatus>("idle");
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const updateField = useCallback(
     (field: EditableField, value: string) => {
@@ -171,6 +177,71 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, onChang
     a.download = `scene-${local.scene_number}-voiceover.mp3`;
     a.click();
   }
+
+  async function generateVideo() {
+    setVideoStatus("submitting");
+    setVideoUrl(null);
+    try {
+      const res = await fetch("/api/generate-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: local.ai_generation_prompt }),
+      });
+      const data = await res.json() as { request_id?: string; error?: string; limit?: number };
+      if (!res.ok) {
+        toast.error(data.error ?? "Failed to start video generation");
+        setVideoStatus("failed");
+        return;
+      }
+      const requestId = data.request_id!;
+      setVideoStatus("queued");
+      toast.info("Video queued — generating in background…");
+
+      // Poll for status every 5 seconds
+      pollRef.current = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/generate-video/status?request_id=${requestId}`);
+          const statusData = await statusRes.json() as { status: string; video_url?: string; error?: string };
+          if (statusData.status === "IN_PROGRESS") {
+            setVideoStatus("processing");
+          } else if (statusData.status === "COMPLETED" && statusData.video_url) {
+            clearInterval(pollRef.current!);
+            setVideoUrl(statusData.video_url);
+            setVideoStatus("done");
+            toast.success("Video ready!");
+          } else if (statusData.status === "FAILED") {
+            clearInterval(pollRef.current!);
+            setVideoStatus("failed");
+            toast.error("Video generation failed. Please try again.");
+          }
+        } catch {
+          clearInterval(pollRef.current!);
+          setVideoStatus("failed");
+          toast.error("Lost connection while generating video.");
+        }
+      }, 5000);
+    } catch {
+      setVideoStatus("failed");
+      toast.error("Failed to start video generation.");
+    }
+  }
+
+  function downloadVideo() {
+    if (!videoUrl) return;
+    const a = document.createElement("a");
+    a.href = videoUrl;
+    a.download = `scene-${local.scene_number}-video.mp4`;
+    a.click();
+  }
+
+  const videoStatusLabel: Record<VideoStatus, string> = {
+    idle: "🎬 Generate Video",
+    submitting: "Submitting…",
+    queued: "In queue…",
+    processing: "Generating…",
+    done: "🎬 Regenerate",
+    failed: "🎬 Retry",
+  };
 
   return (
     <Card>
@@ -293,14 +364,30 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, onChang
             <p className="text-xs font-semibold text-primary uppercase tracking-wide">
               AI Generation Prompt
             </p>
-            <Button
-              size="sm"
-              variant={copied ? "default" : "outline"}
-              className="h-7 text-xs"
-              onClick={copyPrompt}
-            >
-              {copied ? "Copied!" : "Copy"}
-            </Button>
+            <div className="flex items-center gap-2">
+              {canGenerateVideo && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1"
+                  onClick={generateVideo}
+                  disabled={videoStatus === "submitting" || videoStatus === "queued" || videoStatus === "processing"}
+                >
+                  {(videoStatus === "submitting" || videoStatus === "queued" || videoStatus === "processing") && (
+                    <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />
+                  )}
+                  {videoStatusLabel[videoStatus]}
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant={copied ? "default" : "outline"}
+                className="h-7 text-xs"
+                onClick={copyPrompt}
+              >
+                {copied ? "Copied!" : "Copy"}
+              </Button>
+            </div>
           </div>
           <div className="bg-muted/60 rounded-md p-3 border border-primary/20">
             <EditableText
@@ -310,6 +397,38 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, onChang
               mono
             />
           </div>
+
+          {/* Video player */}
+          {videoStatus !== "idle" && (
+            <div className="mt-3">
+              {videoUrl ? (
+                <div className="space-y-2">
+                  <video
+                    src={videoUrl}
+                    controls
+                    className="w-full rounded-md max-h-80 bg-black"
+                    playsInline
+                  />
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={downloadVideo}>
+                    ↓ Download MP4
+                  </Button>
+                </div>
+              ) : videoStatus === "failed" ? (
+                <p className="text-xs text-destructive">Generation failed — try again.</p>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />
+                  {videoStatus === "queued" ? "Waiting in queue (30–90s)…" : "Generating your video…"}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!canGenerateVideo && (
+            <p className="text-xs text-muted-foreground mt-2">
+              🎬 <a href="/dashboard/upgrade" className="underline hover:text-foreground">Upgrade to Creator</a> to generate videos (15/month)
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

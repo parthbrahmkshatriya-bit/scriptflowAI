@@ -12,9 +12,10 @@ interface Props {
   scriptId: string;
   initialScenes: Scene[];
   canGenerateVoiceover: boolean;
+  canGenerateVideo: boolean;
 }
 
-export default function ScriptEditor({ scriptId, initialScenes, canGenerateVoiceover }: Props) {
+export default function ScriptEditor({ scriptId, initialScenes, canGenerateVoiceover, canGenerateVideo }: Props) {
   const [scenes, setScenes] = useState<Scene[]>(initialScenes);
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -88,6 +89,7 @@ export default function ScriptEditor({ scriptId, initialScenes, canGenerateVoice
             key={scene.id}
             scene={scene}
             canGenerateVoiceover={canGenerateVoiceover}
+            canGenerateVideo={canGenerateVideo}
             onChange={handleSceneChange}
           />
         ))}
