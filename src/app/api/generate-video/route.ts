@@ -15,7 +15,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const apiKey = process.env.FAL_KEY;
+    // Use test key locally, production key on Vercel
+    const apiKey = process.env.NODE_ENV === "production"
+      ? process.env.FAL_KEY
+      : (process.env.FAL_KEY_TEST ?? process.env.FAL_KEY);
     if (!apiKey) {
       return NextResponse.json({ error: "Video generation not configured" }, { status: 500 });
     }

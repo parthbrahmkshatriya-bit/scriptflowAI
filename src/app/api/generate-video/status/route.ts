@@ -18,7 +18,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "request_id is required" }, { status: 422 });
     }
 
-    const apiKey = process.env.FAL_KEY;
+    const apiKey = process.env.NODE_ENV === "production"
+      ? process.env.FAL_KEY
+      : (process.env.FAL_KEY_TEST ?? process.env.FAL_KEY);
     if (!apiKey) {
       return NextResponse.json({ error: "Video generation not configured" }, { status: 500 });
     }
