@@ -77,7 +77,7 @@ export async function POST(request: Request) {
         { status: 422 }
       );
     }
-    const { concept, duration, platform, visual_style, ai_tool, image_base64, image_purpose } = parsed.data;
+    const { concept, duration, platform, visual_style, ai_tool, scene_count, image_base64, image_purpose } = parsed.data;
 
     // Use admin client for user operations to bypass RLS
     const admin = createAdminClient();
@@ -131,6 +131,7 @@ export async function POST(request: Request) {
       visualStyle: visual_style,
       duration,
       platform,
+      sceneCount: scene_count,
       imagePurpose: image_purpose,
     });
 

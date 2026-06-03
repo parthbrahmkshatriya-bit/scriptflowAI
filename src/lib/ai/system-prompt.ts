@@ -26,6 +26,8 @@ Describe the subject, action, environment, lighting, mood, and camera framing in
 Example: "A young entrepreneur sits at a minimalist desk, typing on a laptop in a bright modern office. Natural light from large windows. Medium shot, slightly angled from above. Focused, aspirational mood."`,
 };
 
+const DURATION_SECONDS: Record<VideoDuration, number> = { "15s": 15, "30s": 30, "60s": 60 };
+
 const DURATION_SCENE_GUIDE: Record<VideoDuration, string> = {
   "15s": "Generate 3-4 scenes. Total duration must sum to exactly 15 seconds.",
   "30s": "Generate 5-7 scenes. Total duration must sum to exactly 30 seconds.",
@@ -43,9 +45,10 @@ export function buildSystemPrompt(params: {
   visualStyle: VisualStyle;
   duration: VideoDuration;
   platform: Platform;
+  sceneCount?: number | null;
   imagePurpose?: "visual_reference" | "product_ad" | null;
 }): string {
-  const { aiTool, visualStyle, duration, platform, imagePurpose } = params;
+  const { aiTool, visualStyle, duration, platform, sceneCount, imagePurpose } = params;
 
   const imageInstructions =
     imagePurpose === "visual_reference"
@@ -53,6 +56,11 @@ export function buildSystemPrompt(params: {
       : imagePurpose === "product_ad"
       ? `\nPRODUCT IMAGE: The user has uploaded a product image. Analyze the product's appearance and build a compelling advertisement video script that showcases this product. Feature product close-ups, lifestyle usage scenes, and end with a strong call-to-action.\n`
       : "";
+
+  const totalSeconds = DURATION_SECONDS[duration];
+  const sceneGuide = sceneCount
+    ? `Generate exactly ${sceneCount} scene${sceneCount === 1 ? "" : "s"}. Total duration must sum to exactly ${totalSeconds} seconds (distribute evenly, ~${Math.round(totalSeconds / sceneCount)}s per scene).`
+    : DURATION_SCENE_GUIDE[duration];
 
   return `You are ScriptFlow AI, an expert short-form video script writer and AI prompt engineer.${imageInstructions}
 
@@ -77,7 +85,7 @@ Output ONLY valid JSON matching this exact schema. No markdown, no explanation, 
 }
 
 RULES:
-1. ${DURATION_SCENE_GUIDE[duration]}
+1. ${sceneGuide}
 2. Visual style throughout: ${visualStyle}
 3. ${PLATFORM_NOTES[platform]}
 4. Scene 1 MUST hook the viewer in the first 2 seconds — start with action, not setup
