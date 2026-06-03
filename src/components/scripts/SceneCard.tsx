@@ -195,22 +195,38 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, canGene
       }
       const requestId = data.request_id!;
       setVideoStatus("queued");
-      toast.info("Video queued — generating in background…");
+      toast.info("Video queued — generating in background (60–90s)…");
+
+      // Stop polling after 3 minutes regardless
+      const timeoutId = setTimeout(() => {
+        clearInterval(pollRef.current!);
+        setVideoStatus("failed");
+        toast.error("Video generation timed out. Please try again.");
+      }, 180_000);
 
       // Poll for status every 5 seconds
       pollRef.current = setInterval(async () => {
         try {
           const statusRes = await fetch(`/api/generate-video/status?request_id=${requestId}`);
           const statusData = await statusRes.json() as { status: string; video_url?: string; error?: string };
+          console.log("[video] status poll:", statusData.status, statusData.video_url ?? "no url");
+
           if (statusData.status === "IN_PROGRESS") {
             setVideoStatus("processing");
-          } else if (statusData.status === "COMPLETED" && statusData.video_url) {
+          } else if (statusData.status === "COMPLETED") {
             clearInterval(pollRef.current!);
-            setVideoUrl(statusData.video_url);
-            setVideoStatus("done");
-            toast.success("Video ready!");
+            clearTimeout(timeoutId);
+            if (statusData.video_url) {
+              setVideoUrl(statusData.video_url);
+              setVideoStatus("done");
+              toast.success("Video ready!");
+            } else {
+              setVideoStatus("failed");
+              toast.error("Video completed but no URL returned. Please try again.");
+            }
           } else if (statusData.status === "FAILED") {
             clearInterval(pollRef.current!);
+            clearTimeout(timeoutId);
             setVideoStatus("failed");
             toast.error("Video generation failed. Please try again.");
           }
