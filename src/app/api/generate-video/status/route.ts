@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const FAL_MODEL = "fal-ai/wan/v2.5/text-to-video";
+const FAL_MODEL = "fal-ai/wan-25-preview/text-to-video";
 
 export async function GET(request: Request) {
   try {

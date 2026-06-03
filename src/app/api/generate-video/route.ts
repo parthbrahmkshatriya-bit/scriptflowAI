@@ -4,8 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { VIDEO_LIMITS } from "@/lib/constants";
 import type { Plan } from "@/types/database";
 
-// Fal.AI Wan 2.5 — cheapest quality model ($0.05/s)
-const FAL_MODEL = "fal-ai/wan/v2.5/text-to-video";
+// Fal.AI Wan 2.5 — $0.05/second, 5s video = $0.25
+const FAL_MODEL = "fal-ai/wan-25-preview/text-to-video";
 
 export async function POST(request: Request) {
   try {
@@ -46,10 +46,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { prompt, aspect_ratio = "9:16", duration = 5 } = body as {
+    const { prompt, aspect_ratio = "9:16" } = body as {
       prompt: string;
       aspect_ratio?: string;
-      duration?: number;
     };
 
     if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
@@ -69,9 +68,9 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         prompt: prompt.trim(),
-        num_frames: Math.round(duration * 16), // 16fps
-        resolution: "480p",
         aspect_ratio,
+        resolution: "480p",
+        duration: "5",
       }),
     });
 
