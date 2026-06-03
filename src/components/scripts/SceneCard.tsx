@@ -107,8 +107,8 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, canGene
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [generatingAudio, setGeneratingAudio] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [videoStatus, setVideoStatus] = useState<VideoStatus>("idle");
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoStatus, setVideoStatus] = useState<VideoStatus>(scene.video_url ? "done" : "idle");
+  const [videoUrl, setVideoUrl] = useState<string | null>(scene.video_url ?? null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const updateField = useCallback(
@@ -207,7 +207,7 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, canGene
       // Poll for status every 5 seconds
       pollRef.current = setInterval(async () => {
         try {
-          const statusRes = await fetch(`/api/generate-video/status?request_id=${requestId}`);
+          const statusRes = await fetch(`/api/generate-video/status?request_id=${requestId}&scene_id=${local.id}`);
           const statusData = await statusRes.json() as { status: string; video_url?: string; error?: string };
           console.log("[video] status poll:", statusData.status, statusData.video_url ?? "no url");
 

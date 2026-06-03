@@ -95,6 +95,7 @@ export interface Scene {
   ai_generation_prompt: string; // copy-paste ready for selected AI tool
   suggested_music: string | null;
   transition: TransitionType | null;
+  video_url: string | null;
 }
 
 // ============================================================================
