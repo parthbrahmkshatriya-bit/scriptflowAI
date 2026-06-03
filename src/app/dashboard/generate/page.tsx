@@ -47,6 +47,7 @@ export default function GeneratePage() {
   const [platform, setPlatform] = useState<Platform>("youtube_shorts");
   const [visualStyle, setVisualStyle] = useState<VisualStyle>("cinematic");
   const [aiTool, setAiTool] = useState<AiTool>("veo3");
+  const [sceneCount, setSceneCount] = useState<number | null>(null); // null = auto
   const [loading, setLoading] = useState(false);
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -159,6 +160,7 @@ export default function GeneratePage() {
           platform,
           visual_style: visualStyle,
           ai_tool: aiTool,
+          scene_count: sceneCount ?? undefined,
           image_base64: imageDataUrl ?? undefined,
           image_purpose: imageDataUrl ? imagePurpose : undefined,
         }),
@@ -377,11 +379,58 @@ export default function GeneratePage() {
                   }`}
                 >
                   <span className="font-semibold">{opt.label}</span>
-                  <span className="text-xs text-muted-foreground mt-0.5">{opt.scenes}</span>
+                  <span className="text-xs text-muted-foreground mt-0.5">{opt.estimatedScenes}</span>
                 </Label>
               </div>
             ))}
           </RadioGroup>
+        </div>
+
+        {/* Scene count */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-base font-semibold">Number of scenes</Label>
+            {sceneCount !== null && (
+              <button
+                type="button"
+                onClick={() => setSceneCount(null)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Reset to auto
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[null, 3, 4, 5, 6, 7, 8, 10, 12].map((n) => {
+              const durationSecs = duration === "15s" ? 15 : duration === "30s" ? 30 : 60;
+              const secsEach = n ? Math.round(durationSecs / n) : null;
+              const isSelected = sceneCount === n;
+              return (
+                <button
+                  key={n ?? "auto"}
+                  type="button"
+                  onClick={() => setSceneCount(n)}
+                  className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all select-none ${
+                    isSelected
+                      ? "border-violet-500 bg-violet-500/10 text-white"
+                      : "border-border hover:border-violet-500/40 hover:bg-white/[0.04] text-muted-foreground"
+                  }`}
+                >
+                  {n === null ? "Auto" : (
+                    <span>
+                      {n}
+                      {secsEach && <span className="text-xs opacity-60 ml-1">~{secsEach}s ea</span>}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {sceneCount
+              ? `${sceneCount} scenes × ~${Math.round((duration === "15s" ? 15 : duration === "30s" ? 30 : 60) / sceneCount)}s each`
+              : "Auto picks the optimal scene count for your duration"}
+          </p>
         </div>
 
         {/* Platform */}

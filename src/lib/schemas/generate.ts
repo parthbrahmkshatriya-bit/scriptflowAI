@@ -28,6 +28,7 @@ export const generateSchema = z.object({
   platform: z.enum(["youtube_shorts", "instagram_reels", "tiktok"]),
   visual_style: z.enum(["cinematic", "cartoon", "realistic", "minimal", "anime"]),
   ai_tool: z.enum(["veo3", "kling", "runway", "pika", "midjourney", "generic"]),
+  scene_count: z.number().int().min(1).max(12).optional().nullable(),
   image_base64: z.string().max(7_500_000).optional().nullable(),
   image_purpose: z.enum(["visual_reference", "product_ad"]).optional().nullable(),
 });

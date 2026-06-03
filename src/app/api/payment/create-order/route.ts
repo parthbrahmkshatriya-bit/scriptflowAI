@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createRazorpayOrder } from "@/lib/razorpay/client";
-import { EARLY_BIRD_ACTIVE, EARLY_BIRD_PRICING, PRICING_INR } from "@/lib/constants";
-import type { Plan } from "@/types/database";
+import { PRICING_TIERS } from "@/lib/constants";
+import type { SubscriptionPlan } from "@/types/database";
 
 const PAISE_PER_RUPEE = 100;
 
@@ -18,14 +18,19 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const plan = body.plan as Plan;
+    const plan = body.plan as SubscriptionPlan;
+    const billingCycle = (body.billingCycle ?? "monthly") as "monthly" | "annual";
 
-    if (plan !== "creator" && plan !== "pro") {
+    if (!["creator", "studio", "agency"].includes(plan)) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 422 });
     }
 
-    // Use early-bird pricing when the launch offer is active
-    const amountINR = EARLY_BIRD_ACTIVE ? EARLY_BIRD_PRICING[plan].inr : PRICING_INR[plan];
+    const tier = PRICING_TIERS.find((t) => t.plan === plan);
+    if (!tier) {
+      return NextResponse.json({ error: "Plan not found" }, { status: 422 });
+    }
+
+    const amountINR = billingCycle === "annual" ? tier.inrAnnual : tier.inrMonthly;
     const amountPaise = amountINR * PAISE_PER_RUPEE;
     const receipt = `rcpt_${user.id.slice(0, 8)}_${Date.now()}`;
 
@@ -35,6 +40,7 @@ export async function POST(request: Request) {
       order_id: order.id,
       amount: order.amount,
       currency: order.currency,
+      key_id: process.env.RAZORPAY_KEY_ID,
     });
   } catch (err) {
     console.error("[create-order] error:", err);
