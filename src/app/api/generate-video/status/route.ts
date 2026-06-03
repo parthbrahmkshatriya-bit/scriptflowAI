@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const FAL_MODEL = "fal-ai/wan-25-preview/text-to-video";
+// Queue status/result use base path only (no /text-to-video suffix)
+const FAL_QUEUE_BASE = "fal-ai/wan-25-preview";
 
 export async function GET(request: Request) {
   try {
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
 
     // Check status from Fal.AI queue
     const statusRes = await fetch(
-      `https://queue.fal.run/${FAL_MODEL}/requests/${requestId}/status`,
+      `https://queue.fal.run/${FAL_QUEUE_BASE}/requests/${requestId}/status`,
       { headers: { "Authorization": `Key ${apiKey}` } }
     );
 
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
     if (status.status === "COMPLETED") {
       // Fetch the result
       const resultRes = await fetch(
-        `https://queue.fal.run/${FAL_MODEL}/requests/${requestId}`,
+        `https://queue.fal.run/${FAL_QUEUE_BASE}/requests/${requestId}`,
         { headers: { "Authorization": `Key ${apiKey}` } }
       );
       const result = await resultRes.json() as { video?: { url: string } };
