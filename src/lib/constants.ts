@@ -301,7 +301,7 @@ export function getToolByValue(value: string): typeof AI_TOOL_OPTIONS[0] | undef
   return AI_TOOL_OPTIONS.find((t) => t.value === value);
 }
 
-export const MAX_CONCEPT_LENGTH = 500;
+export const MAX_CONCEPT_LENGTH = 10000;
 
 export const PLAN_LABELS: Record<string, string> = {
   free: 'Free',

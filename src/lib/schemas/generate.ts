@@ -11,7 +11,7 @@ export const generateSchema = z.object({
   concept: z
     .string()
     .min(10, "Concept must be at least 10 characters")
-    .max(500, "Concept must be 500 characters or less")
+    .max(10000, "Concept must be 10,000 characters or less")
     .refine(
       (val) => val.trim().length >= 10,
       "Concept cannot be blank or whitespace"
