@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -187,7 +187,6 @@ export default function GeneratePage() {
     }
   }
 
-  const charsLeft = useMemo(() => MAX_CONCEPT_LENGTH - concept.length, [concept]);
   const usagePct = usage && usage.limit !== Infinity
     ? Math.min((usage.used / usage.limit) * 100, 100)
     : 0;
@@ -252,14 +251,10 @@ export default function GeneratePage() {
             placeholder="e.g. A time-lapse of a seed growing into a towering oak tree showing the beauty of nature..."
             value={concept}
             onChange={(e) => setConcept(e.target.value)}
-            maxLength={MAX_CONCEPT_LENGTH}
             rows={4}
             className="resize-none"
             required
           />
-          <div className={`text-xs text-right ${charsLeft < 50 ? "text-destructive" : "text-muted-foreground"}`}>
-            {charsLeft} characters remaining
-          </div>
         </div>
 
         {/* Reference Image (optional) */}
