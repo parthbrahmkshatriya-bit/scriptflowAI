@@ -27,78 +27,91 @@ export const USAGE_LIMITS: Record<UserPlan, number> = {
 // PRICING (in USD and INR)
 // ============================================================================
 
+export interface PlanFeature {
+  label: string;
+  category: 'limits' | 'scripts' | 'media' | 'account';
+  free: boolean | string;
+  creator: boolean | string;
+  studio: boolean | string;
+  agency: boolean | string;
+}
+
+export const PLAN_FEATURES: PlanFeature[] = [
+  // Limits
+  { category: 'limits', label: 'Scripts per month',       free: '3',         creator: '30',        studio: 'Unlimited', agency: 'Unlimited' },
+  { category: 'limits', label: 'Video generations/month', free: false,       creator: '15',        studio: '50',        agency: '150'       },
+
+  // Script generation
+  { category: 'scripts', label: 'All platforms (YouTube, Reels, TikTok)', free: true,  creator: true,  studio: true,  agency: true  },
+  { category: 'scripts', label: 'All visual styles',                       free: true,  creator: true,  studio: true,  agency: true  },
+  { category: 'scripts', label: 'Tool-specific AI prompts',                free: true,  creator: true,  studio: true,  agency: true  },
+  { category: 'scripts', label: 'Scene count selector',                    free: true,  creator: true,  studio: true,  agency: true  },
+  { category: 'scripts', label: 'Inline scene editing',                    free: true,  creator: true,  studio: true,  agency: true  },
+  { category: 'scripts', label: 'Reference image upload',                  free: false, creator: true,  studio: true,  agency: true  },
+
+  // Media generation
+  { category: 'media', label: 'AI Voiceover generation',  free: false, creator: true,  studio: true,  agency: true  },
+  { category: 'media', label: 'AI Video generation',      free: false, creator: true,  studio: true,  agency: true  },
+
+  // Account
+  { category: 'account', label: 'Script history & favorites', free: false, creator: true,  studio: true,  agency: true  },
+  { category: 'account', label: 'Public script sharing',      free: false, creator: true,  studio: true,  agency: true  },
+  { category: 'account', label: 'Export as PDF',              free: false, creator: false, studio: true,  agency: true  },
+  { category: 'account', label: 'Priority generation',        free: false, creator: false, studio: true,  agency: true  },
+  { category: 'account', label: 'Team seats',                 free: false, creator: false, studio: false, agency: '5 seats' },
+  { category: 'account', label: 'Priority support',           free: false, creator: false, studio: false, agency: true  },
+];
+
 export interface PricingTier {
   name: string;
   plan: UserPlan;
+  badge?: string;
   description: string;
   usdMonthly: number;
   usdAnnual: number;
   inrMonthly: number;
   inrAnnual: number;
-  features: string[];
+  highlight?: boolean;
 }
 
 export const PRICING_TIERS: PricingTier[] = [
   {
     name: 'Free',
     plan: 'free',
-    description: 'Get started with 3 scripts per month',
+    description: 'Perfect for trying out ScriptFlow AI',
     usdMonthly: 0,
     usdAnnual: 0,
     inrMonthly: 0,
     inrAnnual: 0,
-    features: [
-      '3 scripts per month',
-      'Basic output format',
-      'No voiceover or video features',
-      'Tool-ready prompts',
-    ],
   },
   {
     name: 'Creator',
     plan: 'creator',
-    description: 'For active creators with voiceover support',
+    badge: 'Most Popular',
+    description: 'For creators who publish consistently',
     usdMonthly: 9.99,
     usdAnnual: 99.0,
     inrMonthly: 799,
     inrAnnual: 7990,
-    features: [
-      '15 scripts per month',
-      'Voiceover support',
-      'Tool-specific prompt formatting',
-      'Public sharing & remixing',
-      'Full script history',
-    ],
+    highlight: true,
   },
   {
     name: 'Studio',
     plan: 'studio',
-    description: 'Create full videos with script, voice, and video output',
+    description: 'For serious creators scaling their output',
     usdMonthly: 24.99,
     usdAnnual: 249.0,
     inrMonthly: 1999,
     inrAnnual: 19990,
-    features: [
-      '20 full videos per month',
-      'Video-ready prompts and voiceover',
-      'Exportable scripts and storyboards',
-      'Premium support',
-    ],
   },
   {
     name: 'Agency',
     plan: 'agency',
-    description: 'Unlimited videos with team access and white label',
+    description: 'For teams and agencies managing multiple channels',
     usdMonthly: 59.99,
     usdAnnual: 599.0,
     inrMonthly: 4999,
     inrAnnual: 49990,
-    features: [
-      'Unlimited videos',
-      '5 seats included',
-      'White-label outputs',
-      'Priority onboarding and support',
-    ],
   },
 ];
 

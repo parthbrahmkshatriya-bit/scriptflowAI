@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import PayPalCheckoutButton from '@/components/PayPalCheckoutButton';
-import { PRICING_TIERS } from '@/lib/constants';
+import { PRICING_TIERS, PLAN_FEATURES } from '@/lib/constants';
+
+const CATEGORY_LABELS: Record<string, string> = {
+  limits: 'Usage',
+  scripts: 'Script Generation',
+  media: 'AI Media Generation',
+  account: 'Account & Sharing',
+};
 import { isIndianUser } from '@/lib/location';
 import type { SubscriptionPlan } from '@/types/database';
 
@@ -177,30 +184,63 @@ export default function PricingSection() {
           return (
             <div
               key={tier.plan}
-              className={`rounded-[2rem] border border-white/10 p-8 transition ${
-                tier.plan === 'free' ? 'bg-white/5' : 'bg-black/20'
+              className={`rounded-[2rem] border p-8 transition ${
+                tier.highlight
+                  ? 'border-sky-500/50 bg-sky-500/5 ring-1 ring-sky-500/20'
+                  : 'border-white/10 bg-white/5'
               }`}
             >
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-300">{tier.name}</p>
-                  <p className="mt-4 text-3xl font-semibold text-white">
-                    {currency}{price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-300">{tier.name}</p>
+                    {tier.badge && (
+                      <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-300">
+                        {tier.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-3 text-3xl font-semibold text-white">
+                    {currency}{price.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                     <span className="text-base font-medium text-zinc-400">{isPaid ? period : ''}</span>
                   </p>
                 </div>
               </div>
 
-              <p className="mt-6 text-sm leading-6 text-zinc-300">{tier.description}</p>
+              <p className="mt-4 text-sm leading-6 text-zinc-400">{tier.description}</p>
 
-              <ul className="mt-8 space-y-3 text-sm text-zinc-300">
-                {tier.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3">
-                    <span className="mt-1 h-2 w-2 rounded-full bg-sky-300" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="mt-8 space-y-6">
+                {(['limits', 'scripts', 'media', 'account'] as const).map((category) => {
+                  const categoryFeatures = PLAN_FEATURES.filter(f => f.category === category);
+                  return (
+                    <div key={category}>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+                        {CATEGORY_LABELS[category]}
+                      </p>
+                      <ul className="space-y-2">
+                        {categoryFeatures.map((feature) => {
+                          const val = feature[tier.plan as keyof typeof feature] as boolean | string;
+                          const isString = typeof val === 'string';
+                          const isTrue = val === true || isString;
+                          return (
+                            <li key={feature.label} className="flex items-center gap-2.5 text-sm">
+                              {isTrue ? (
+                                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-sky-400 text-[10px] font-bold">✓</span>
+                              ) : (
+                                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/5 text-zinc-600 text-[10px] font-bold">✕</span>
+                              )}
+                              <span className={isTrue ? 'text-zinc-200' : 'text-zinc-600'}>
+                                {feature.label}
+                                {isString && <span className="ml-1 font-semibold text-sky-400">— {val}</span>}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
 
               <div className="mt-8">
                 {!isPaid ? (
