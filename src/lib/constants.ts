@@ -105,9 +105,9 @@ export const PRICING_TIERS: PricingTier[] = [
     inrAnnual: 19990,
   },
   {
-    name: 'Agency',
+    name: 'Pro',
     plan: 'agency',
-    description: 'For teams and agencies managing multiple channels',
+    description: 'For creators who want unlimited scripts and videos',
     usdMonthly: 59.99,
     usdAnnual: 599.0,
     inrMonthly: 4999,
@@ -321,7 +321,7 @@ export const PLAN_LABELS: Record<string, string> = {
   creator: 'Creator',
   studio: 'Studio',
   pro: 'Pro',
-  agency: 'Agency',
+  agency: 'Pro',
 };
 
 export const PLAN_LIMITS: Record<string, number> = {
@@ -364,15 +364,19 @@ export const AI_TOOL_LABELS: Record<string, string> = {
 };
 
 export const REGULAR_PRICING = {
-  free: { usd: 0, inr: 0 },
-  creator: { usd: 9.99, inr: 799 },
-  pro: { usd: 19.99, inr: 1999 },
+  free:    { usd: 0,     inr: 0    },
+  creator: { usd: 9.99,  inr: 799  },
+  studio:  { usd: 24.99, inr: 1999 },
+  pro:     { usd: 19.99, inr: 1999 }, // legacy alias
+  agency:  { usd: 59.99, inr: 4999 },
 };
 
 export const EARLY_BIRD_PRICING = {
-  free: { usd: 0, inr: 0 },
-  creator: { usd: 6.99, inr: 599 },
-  pro: { usd: 12.99, inr: 1199 },
+  free:    { usd: 0,    inr: 0    },
+  creator: { usd: 6.99, inr: 599  },
+  studio:  { usd: 19.99,inr: 1599 },
+  pro:     { usd: 12.99,inr: 1199 }, // legacy alias
+  agency:  { usd: 49.99,inr: 3999 },
 };
 
 export const PRICING_USD = {
@@ -408,7 +412,7 @@ export const COPY = {
   UPGRADE_CTA: {
     free: 'Upgrade to Creator for more scripts and voiceover',
     creator: 'Upgrade to Studio for video generation',
-    studio: 'Upgrade to Agency for unlimited teams and white label',
+    studio: 'Upgrade to Pro for unlimited scripts and 150 videos/month',
   },
   PAGE_TITLES: {
     dashboard: "Dashboard",
