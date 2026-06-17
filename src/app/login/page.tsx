@@ -53,15 +53,17 @@ function LoginForm() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       toast.error(error.message);
+      setLoading(false);
     } else if (!data.user?.email_confirmed_at) {
       toast.error("Please verify your email before signing in.");
       await supabase.auth.signOut();
+      setLoading(false);
       router.push("/verify-email");
     } else {
-      router.push(redirectTo);
-      router.refresh();
+      // Hard redirect so the browser sends a fresh request with cookies already set,
+      // preventing the middleware from seeing a stale session and bouncing back to /login.
+      window.location.href = redirectTo;
     }
-    setLoading(false);
   }
 
   async function handleMagicLink() {
