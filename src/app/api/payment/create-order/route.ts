@@ -7,6 +7,15 @@ import type { SubscriptionPlan } from "@/types/database";
 const PAISE_PER_RUPEE = 100;
 
 export async function POST(request: Request) {
+  // Fail fast if Razorpay credentials are missing
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    console.error("[create-order] Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET env vars");
+    return NextResponse.json(
+      { error: "Payment system not configured. Please contact support." },
+      { status: 503 }
+    );
+  }
+
   try {
     const supabase = await createClient();
     const {
@@ -31,6 +40,10 @@ export async function POST(request: Request) {
     }
 
     const amountINR = billingCycle === "annual" ? tier.inrAnnual : tier.inrMonthly;
+    if (!amountINR || amountINR <= 0) {
+      return NextResponse.json({ error: "Invalid plan amount" }, { status: 422 });
+    }
+
     const amountPaise = amountINR * PAISE_PER_RUPEE;
     const receipt = `rcpt_${user.id.slice(0, 8)}_${Date.now()}`;
 
@@ -43,7 +56,15 @@ export async function POST(request: Request) {
       key_id: process.env.RAZORPAY_KEY_ID,
     });
   } catch (err) {
-    console.error("[create-order] error:", err);
-    return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
+    // Extract meaningful error from Razorpay SDK response
+    const rzpErr = err as { statusCode?: number; error?: { description?: string; code?: string } };
+    const rzpMessage = rzpErr?.error?.description ?? rzpErr?.error?.code;
+    console.error("[create-order] Razorpay error:", rzpErr?.statusCode, rzpMessage ?? err);
+
+    const clientMessage = rzpMessage
+      ? `Payment gateway error: ${rzpMessage}`
+      : "Failed to create order. Please try again or contact support.";
+
+    return NextResponse.json({ error: clientMessage }, { status: 500 });
   }
 }
