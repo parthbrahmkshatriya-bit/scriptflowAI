@@ -2,11 +2,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { PLAN_LABELS, PLAN_LIMITS, PRICING_USD, PRICING_INR } from "@/lib/constants";
+import Link from "next/link";
+import { PLAN_LABELS, PLAN_LIMITS } from "@/lib/constants";
 import type { Plan } from "@/types/database";
 import ProfileForm from "@/components/settings/ProfileForm";
-import PlanCard from "@/components/settings/PlanCard";
 
 export const dynamic = "force-dynamic";
 
@@ -70,53 +69,26 @@ export default async function SettingsPage() {
               <p className="text-sm text-muted-foreground mt-0.5">
                 {used} of {limit === Infinity ? "unlimited" : limit} scripts used this month
               </p>
+              {profile?.subscription_ends_at && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Renews{" "}
+                  {new Date(profile.subscription_ends_at).toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </p>
+              )}
             </div>
+            {plan !== "agency" && (
+              <Link
+                href="/dashboard/upgrade"
+                className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Upgrade Plan
+              </Link>
+            )}
           </div>
-
-          {plan === "free" && (
-            <>
-              <Separator />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <PlanCard
-                  name="Creator"
-                  priceUsd={PRICING_USD.creator}
-                  priceInr={PRICING_INR.creator}
-                  features={[
-                    "30 scripts/month",
-                    "All platforms & styles",
-                    "AI prompt formatting",
-                    "Script history",
-                  ]}
-                />
-                <PlanCard
-                  name="Pro"
-                  priceUsd={PRICING_USD.pro}
-                  priceInr={PRICING_INR.pro}
-                  features={[
-                    "Unlimited scripts",
-                    "Everything in Creator",
-                    "Remix scripts",
-                    "Priority generation",
-                  ]}
-                  highlighted
-                />
-              </div>
-              <p className="text-xs text-muted-foreground text-center">
-                Payment integration coming soon. Contact us to upgrade manually.
-              </p>
-            </>
-          )}
-
-          {plan !== "free" && profile?.subscription_ends_at && (
-            <p className="text-sm text-muted-foreground">
-              Renews{" "}
-              {new Date(profile.subscription_ends_at).toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </p>
-          )}
         </CardContent>
       </Card>
 
