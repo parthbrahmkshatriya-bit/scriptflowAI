@@ -118,28 +118,14 @@ export default function SceneCard({ scene, userPlan }: Props) {
           </div>
         </div>
 
-        {/* Voiceover text */}
-        {scene.voiceover_text && (
-          <>
-            <Separator />
-            <div className="space-y-1">
-              <p className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wide">
-                Voiceover
-              </p>
-              <p className="text-sm italic text-muted-foreground">
-                &quot;{scene.voiceover_text}&quot;
-              </p>
-            </div>
-          </>
-        )}
-
-        {/* Video generation — Kling 2.0 */}
+        {/* Video generation — Kling 2.0 (voiceover shown inside) */}
         <Separator />
         <VideoPlayer
           prompt={scene.ai_generation_prompt}
           sceneNumber={scene.scene_number}
           sceneId={scene.id}
           durationSeconds={scene.duration_seconds}
+          voiceoverText={scene.voiceover_text}
           userPlan={userPlan}
         />
       </CardContent>

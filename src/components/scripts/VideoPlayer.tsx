@@ -10,10 +10,11 @@ interface Props {
   sceneNumber: number;
   sceneId: string;
   durationSeconds: number;
+  voiceoverText?: string | null;
   userPlan: Plan;
 }
 
-export function VideoPlayer({ prompt, sceneNumber, sceneId, durationSeconds, userPlan }: Props) {
+export function VideoPlayer({ prompt, sceneNumber, sceneId, durationSeconds, voiceoverText, userPlan }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -86,6 +87,18 @@ export function VideoPlayer({ prompt, sceneNumber, sceneId, durationSeconds, use
       <p className="text-xs text-zinc-500 font-mono leading-relaxed line-clamp-2 select-all">
         {prompt}
       </p>
+
+      {/* Voiceover script for this scene */}
+      {voiceoverText && (
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">
+            Voiceover
+          </p>
+          <p className="text-xs italic text-zinc-400 leading-relaxed">
+            &quot;{voiceoverText}&quot;
+          </p>
+        </div>
+      )}
 
       {/* Buttons row */}
       <div className="flex items-center gap-2 flex-wrap">
