@@ -9,6 +9,7 @@ export const maxDuration = 120;
 const schema = z.object({
   sceneId: z.string().uuid(),
   prompt: z.string().min(1).max(2000),
+  durationSeconds: z.number().int().min(1).max(60).optional(),
 });
 
 interface KlingOutput {
@@ -40,7 +41,9 @@ export async function POST(request: Request) {
         { status: 422 }
       );
     }
-    const { sceneId, prompt } = parsed.data;
+    const { sceneId, prompt, durationSeconds } = parsed.data;
+    // Kling 2.0 only accepts "5" or "10" — pick whichever is closer
+    const klingDuration: "5" | "10" = (durationSeconds ?? 5) > 5 ? "10" : "5";
 
     // Plan check — only studio and agency can generate videos
     const plan = await getUserPlan(supabase, user.id);
@@ -90,7 +93,7 @@ export async function POST(request: Request) {
     const falPromise = fal.subscribe("fal-ai/kling-video/v2/master/text-to-video", {
       input: {
         prompt,
-        duration: "5",
+        duration: klingDuration,
         aspect_ratio: "9:16",
       },
       logs: true,

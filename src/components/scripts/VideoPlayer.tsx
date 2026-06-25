@@ -9,10 +9,11 @@ interface Props {
   prompt: string;
   sceneNumber: number;
   sceneId: string;
+  durationSeconds: number;
   userPlan: Plan;
 }
 
-export function VideoPlayer({ prompt, sceneNumber, sceneId, userPlan }: Props) {
+export function VideoPlayer({ prompt, sceneNumber, sceneId, durationSeconds, userPlan }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -41,7 +42,7 @@ export function VideoPlayer({ prompt, sceneNumber, sceneId, userPlan }: Props) {
       const res = await fetch("/api/video/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sceneId, prompt }),
+        body: JSON.stringify({ sceneId, prompt, durationSeconds }),
       });
 
       const data = await res.json();

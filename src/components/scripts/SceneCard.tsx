@@ -139,6 +139,7 @@ export default function SceneCard({ scene, userPlan }: Props) {
           prompt={scene.ai_generation_prompt}
           sceneNumber={scene.scene_number}
           sceneId={scene.id}
+          durationSeconds={scene.duration_seconds}
           userPlan={userPlan}
         />
       </CardContent>
