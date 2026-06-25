@@ -138,10 +138,18 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
     setVideoStatus("submitting");
     setVideoUrl(null);
     try {
+      // Append voiceover as context so the AI generates visuals that match the narration
+      const promptWithVoiceover = local.voiceover_text
+        ? `${local.ai_generation_prompt}\n\nVoiceover: "${local.voiceover_text}"`
+        : local.ai_generation_prompt;
+
       const res = await fetch("/api/generate-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: local.ai_generation_prompt }),
+        body: JSON.stringify({
+          prompt: promptWithVoiceover,
+          duration_seconds: local.duration_seconds,
+        }),
       });
       const data = await res.json() as { request_id?: string; error?: string };
       if (!res.ok) {

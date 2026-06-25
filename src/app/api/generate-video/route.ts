@@ -4,8 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { VIDEO_LIMITS } from "@/lib/constants";
 import type { Plan } from "@/types/database";
 
-// Fal.AI Wan 2.5 — $0.05/second, 5s video = $0.25
-const FAL_MODEL = "fal-ai/wan-25-preview/text-to-video";
+// Kling 2.0 via Fal.AI queue — supports 5s or 10s clips
+const FAL_MODEL = "fal-ai/kling-video/v2/master/text-to-video";
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +15,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Use test key locally, production key on Vercel
     const apiKey = process.env.NODE_ENV === "production"
       ? process.env.FAL_KEY
       : (process.env.FAL_KEY_TEST ?? process.env.FAL_KEY);
@@ -49,18 +48,21 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { prompt, aspect_ratio = "9:16" } = body as {
+    const { prompt, aspect_ratio = "9:16", duration_seconds } = body as {
       prompt: string;
       aspect_ratio?: string;
+      duration_seconds?: number;
     };
 
     if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
       return NextResponse.json({ error: "prompt is required" }, { status: 422 });
     }
 
-    if (prompt.length > 2000) {
-      return NextResponse.json({ error: "Prompt exceeds 2000 character limit" }, { status: 422 });
-    }
+    // Clamp prompt to 2000 chars (Kling limit)
+    const finalPrompt = prompt.trim().slice(0, 2000);
+
+    // Kling 2.0 only supports "5" or "10" — pick based on scene duration
+    const klingDuration: "5" | "10" = (duration_seconds ?? 5) > 5 ? "10" : "5";
 
     // Submit to Fal.AI queue — returns immediately with a request_id
     const submitRes = await fetch(`https://queue.fal.run/${FAL_MODEL}`, {
@@ -70,10 +72,9 @@ export async function POST(request: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        prompt: prompt.trim(),
+        prompt: finalPrompt,
+        duration: klingDuration,
         aspect_ratio,
-        resolution: "480p",
-        duration: "5",
       }),
     });
 
@@ -85,7 +86,6 @@ export async function POST(request: Request) {
 
     const { request_id } = await submitRes.json() as { request_id: string };
 
-    // Increment counter on successful submission
     await admin
       .from("users")
       .update({ videos_used_this_month: used + 1 })

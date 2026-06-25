@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Queue status/result use base path only (no /text-to-video suffix)
-const FAL_QUEUE_BASE = "fal-ai/wan-25-preview";
+const FAL_QUEUE_BASE = "fal-ai/kling-video/v2/master";
 
 export async function GET(request: Request) {
   try {
