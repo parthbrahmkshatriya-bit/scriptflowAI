@@ -1,16 +1,16 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   PLATFORM_LABELS,
   VISUAL_STYLE_LABELS,
   AI_TOOL_LABELS,
+  VIDEO_LIMITS,
 } from "@/lib/constants";
-import type { Platform, VisualStyle, AiTool } from "@/types/database";
+import type { Platform, VisualStyle, AiTool, Plan } from "@/types/database";
 import ScriptActions from "@/components/scripts/ScriptActions";
-import SceneCard from "@/components/scripts/SceneCard";
-import CopyAllButton from "@/components/scripts/CopyAllButton";
+import ScriptEditor from "@/components/scripts/ScriptEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +27,17 @@ export default async function ScriptPage({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const admin = createAdminClient();
+  const { data: userProfile } = await admin
+    .from("users")
+    .select("plan, videos_used_this_month")
+    .eq("id", user.id)
+    .single();
+  const plan = (userProfile?.plan ?? "free") as Plan;
+  const videosUsed = userProfile?.videos_used_this_month ?? 0;
+  const videoLimit = VIDEO_LIMITS[plan] ?? 0;
+  const canGenerateVideo = videoLimit > 0 && videosUsed < videoLimit;
+
   const { data: script } = await supabase
     .from("scripts")
     .select("*")
@@ -36,24 +47,11 @@ export default async function ScriptPage({ params }: Props) {
 
   if (!script) notFound();
 
-  const [{ data: scenes }, { data: profile }] = await Promise.all([
-    supabase
-      .from("scenes")
-      .select("*")
-      .eq("script_id", id)
-      .order("scene_number", { ascending: true }),
-    supabase
-      .from("users")
-      .select("plan")
-      .eq("id", user.id)
-      .single(),
-  ]);
-
-  const userPlan = (profile?.plan ?? "free") as import("@/types/database").Plan;
-
-  const allPrompts = (scenes ?? [])
-    .map((s, i) => `Scene ${i + 1}: ${s.ai_generation_prompt}`)
-    .join("\n\n");
+  const { data: scenes } = await supabase
+    .from("scenes")
+    .select("*")
+    .eq("script_id", id)
+    .order("scene_number", { ascending: true });
 
   function formatDate(dateStr: string) {
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -101,19 +99,11 @@ export default async function ScriptPage({ params }: Props) {
         </p>
       </div>
 
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-lg">Scenes</h2>
-        <CopyAllButton text={allPrompts} />
-      </div>
-
-      <Separator />
-
-      {/* Scene cards */}
-      <div className="space-y-4">
-        {(scenes ?? []).map((scene) => (
-          <SceneCard key={scene.id} scene={scene} userPlan={userPlan} />
-        ))}
-      </div>
+      <ScriptEditor
+        scriptId={id}
+        initialScenes={scenes ?? []}
+        canGenerateVideo={canGenerateVideo}
+      />
     </div>
   );
 }

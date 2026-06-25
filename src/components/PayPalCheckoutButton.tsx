@@ -1,0 +1,105 @@
+﻿"use client";
+
+import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
+import { useState } from 'react';
+
+type BillingCycle = 'monthly' | 'annual';
+
+type PayPalCheckoutButtonProps = {
+  plan: 'creator' | 'studio' | 'agency';
+  billingCycle: BillingCycle;
+  onSuccess: () => void;
+  onError: (error: string) => void;
+};
+
+const PayPalCheckoutButton = ({ plan, billingCycle, onSuccess, onError }: PayPalCheckoutButtonProps) => {
+  const [submitting, setSubmitting] = useState(false);
+  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
+
+  if (!clientId) {
+    return (
+      <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-200">
+        PayPal is not configured. Please set NEXT_PUBLIC_PAYPAL_CLIENT_ID.
+      </div>
+    );
+  }
+
+  return (
+    <PayPalScriptProvider options={{ clientId, currency: 'USD' }}>
+      <div className="mt-4">
+        <PayPalButtons
+          style={{ layout: 'vertical', color: 'black', shape: 'rect', label: 'pay' }}
+          createOrder={async () => {
+            setSubmitting(true);
+
+            try {
+              const response = await fetch('/api/paypal/create-order', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ plan, billingCycle }),
+              });
+
+              if (!response.ok) {
+                const result = await response.json();
+                onError(result?.error || 'Payment failed. Please try again.');
+                return '';
+              }
+
+              const result = await response.json();
+
+              if (!result?.orderId) {
+                onError('Payment failed. Please try again.');
+                return '';
+              }
+
+              return result.orderId;
+            } catch {
+              onError('Connection error. Please check your internet.');
+              return '';
+            } finally {
+              setSubmitting(false);
+            }
+          }}
+          onApprove={async (data) => {
+            try {
+              const response = await fetch('/api/paypal/capture-order', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  orderId: data.orderID,
+                  plan,
+                  billingCycle,
+                }),
+              });
+
+              const result = await response.json();
+
+              if (result?.success) {
+                onSuccess();
+              } else {
+                onError(result?.error || 'Payment failed. Please try again.');
+              }
+            } catch {
+              onError('Connection error. Please check your internet.');
+            }
+          }}
+          onError={() => {
+            onError('PayPal is currently unavailable. Please try again.');
+          }}
+          onCancel={() => {
+            onError('Payment cancelled.');
+          }}
+        />
+        {submitting ? (
+          <div className="mt-3 text-sm text-zinc-300">Processing payment...</div>
+        ) : null}
+      </div>
+    </PayPalScriptProvider>
+  );
+};
+
+export default PayPalCheckoutButton;

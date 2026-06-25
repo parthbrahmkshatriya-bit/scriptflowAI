@@ -25,9 +25,12 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // getSession() reads the JWT from the cookie without a remote call — fast.
+  // API routes do their own auth with getUser(); no need to double-check here.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const { pathname } = request.nextUrl;
 
@@ -40,13 +43,12 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
-    // Block unverified users from the dashboard
     if (!user.email_confirmed_at) {
       return NextResponse.redirect(new URL("/verify-email", origin));
     }
   }
 
-  // Redirect fully authenticated+verified users away from auth pages
+  // Redirect authenticated+verified users away from auth pages
   if (user && user.email_confirmed_at) {
     if (
       pathname === "/login" ||
@@ -62,6 +64,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Skip static files, images, and API routes (they handle their own auth)
+    "/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

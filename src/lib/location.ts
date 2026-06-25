@@ -1,0 +1,5 @@
+﻿export function isIndianUser(): boolean {
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  return timezone.includes('Calcutta') || timezone.includes('Kolkata');
+}
