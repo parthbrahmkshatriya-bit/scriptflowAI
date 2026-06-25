@@ -15,10 +15,6 @@ export async function getUserPlan(
   return (data?.plan as Plan) ?? "free";
 }
 
-export function canUseVoiceover(plan: Plan): boolean {
-  return ["creator", "pro", "studio", "agency"].includes(plan);
-}
-
 export function canUseVideoGeneration(plan: Plan): boolean {
   return ["studio", "agency"].includes(plan);
 }

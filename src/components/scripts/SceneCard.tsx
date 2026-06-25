@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { VoiceoverPlayer } from "@/components/scripts/VoiceoverPlayer";
 import { VideoPlayer } from "@/components/scripts/VideoPlayer";
 import type { Scene, Plan } from "@/types/database";
 
@@ -119,16 +118,18 @@ export default function SceneCard({ scene, userPlan }: Props) {
           </div>
         </div>
 
-        {/* Voiceover — generate + player */}
+        {/* Voiceover text */}
         {scene.voiceover_text && (
           <>
             <Separator />
-            <VoiceoverPlayer
-              voiceoverText={scene.voiceover_text}
-              sceneNumber={scene.scene_number}
-              sceneId={scene.id}
-              userPlan={userPlan}
-            />
+            <div className="space-y-1">
+              <p className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wide">
+                Voiceover
+              </p>
+              <p className="text-sm italic text-muted-foreground">
+                &quot;{scene.voiceover_text}&quot;
+              </p>
+            </div>
           </>
         )}
 
