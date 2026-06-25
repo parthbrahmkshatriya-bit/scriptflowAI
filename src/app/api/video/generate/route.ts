@@ -97,7 +97,7 @@ export async function POST(request: Request) {
         aspect_ratio: "9:16",
       },
       logs: true,
-      onQueueUpdate: (update) => {
+      onQueueUpdate: (update: { status: string }) => {
         console.log("[video] Kling status:", update.status);
       },
     }) as Promise<{ data: KlingOutput; requestId: string }>;
