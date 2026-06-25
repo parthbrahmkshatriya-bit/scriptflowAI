@@ -6,13 +6,11 @@ import {
   PLATFORM_LABELS,
   VISUAL_STYLE_LABELS,
   AI_TOOL_LABELS,
+  VIDEO_LIMITS,
 } from "@/lib/constants";
 import type { Platform, VisualStyle, AiTool, Plan } from "@/types/database";
 import ScriptActions from "@/components/scripts/ScriptActions";
 import ScriptEditor from "@/components/scripts/ScriptEditor";
-import { VIDEO_LIMITS } from "@/lib/constants";
-
-const PAID_PLANS: Plan[] = ["creator", "studio", "agency", "pro"];
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +27,6 @@ export default async function ScriptPage({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch user plan to determine voiceover access
   const admin = createAdminClient();
   const { data: userProfile } = await admin
     .from("users")
@@ -37,7 +34,6 @@ export default async function ScriptPage({ params }: Props) {
     .eq("id", user.id)
     .single();
   const plan = (userProfile?.plan ?? "free") as Plan;
-  const canGenerateVoiceover = PAID_PLANS.includes(plan);
   const videosUsed = userProfile?.videos_used_this_month ?? 0;
   const videoLimit = VIDEO_LIMITS[plan] ?? 0;
   const canGenerateVideo = videoLimit > 0 && videosUsed < videoLimit;
@@ -106,7 +102,6 @@ export default async function ScriptPage({ params }: Props) {
       <ScriptEditor
         scriptId={id}
         initialScenes={scenes ?? []}
-        canGenerateVoiceover={canGenerateVoiceover}
         canGenerateVideo={canGenerateVideo}
       />
     </div>

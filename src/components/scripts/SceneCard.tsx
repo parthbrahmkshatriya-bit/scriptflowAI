@@ -10,12 +10,10 @@ import type { Scene } from "@/types/database";
 
 interface Props {
   scene: Scene;
-  canGenerateVoiceover?: boolean;
   canGenerateVideo?: boolean;
   onChange?: (updated: Scene) => void;
 }
 
-// Editable fields users can click to modify
 type EditableField =
   | "visual_description"
   | "camera_direction"
@@ -43,7 +41,6 @@ function EditableText({
 
   function startEdit() {
     setEditing(true);
-    // Focus after render
     setTimeout(() => {
       const el = textareaRef.current;
       if (el) {
@@ -58,9 +55,7 @@ function EditableText({
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Escape") {
-      setEditing(false);
-    }
+    if (e.key === "Escape") setEditing(false);
   }
 
   function autoResize(el: HTMLTextAreaElement) {
@@ -101,12 +96,9 @@ function EditableText({
 
 type VideoStatus = "idle" | "submitting" | "queued" | "processing" | "done" | "failed";
 
-export default function SceneCard({ scene, canGenerateVoiceover = false, canGenerateVideo = false, onChange }: Props) {
+export default function SceneCard({ scene, canGenerateVideo = false, onChange }: Props) {
   const [local, setLocal] = useState<Scene>(scene);
   const [copied, setCopied] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [generatingAudio, setGeneratingAudio] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [videoStatus, setVideoStatus] = useState<VideoStatus>(scene.video_url ? "done" : "idle");
   const [videoUrl, setVideoUrl] = useState<string | null>(scene.video_url ?? null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -142,42 +134,6 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, canGene
     }
   }
 
-  async function generateVoiceover() {
-    if (!local.voiceover_text) return;
-    setGeneratingAudio(true);
-    try {
-      const res = await fetch("/api/voiceover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: local.voiceover_text }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error ?? "Voiceover generation failed");
-        return;
-      }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-      setAudioUrl(url);
-      toast.success("Voiceover ready!");
-    } catch {
-      toast.error("Failed to generate voiceover. Please try again.");
-    } finally {
-      setGeneratingAudio(false);
-    }
-  }
-
-  function downloadAudio() {
-    if (!audioUrl) return;
-    const a = document.createElement("a");
-    a.href = audioUrl;
-    a.download = `scene-${local.scene_number}-voiceover.mp3`;
-    a.click();
-  }
-
   async function generateVideo() {
     setVideoStatus("submitting");
     setVideoUrl(null);
@@ -187,7 +143,7 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, canGene
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: local.ai_generation_prompt }),
       });
-      const data = await res.json() as { request_id?: string; error?: string; limit?: number };
+      const data = await res.json() as { request_id?: string; error?: string };
       if (!res.ok) {
         toast.error(data.error ?? "Failed to start video generation");
         setVideoStatus("failed");
@@ -197,19 +153,16 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, canGene
       setVideoStatus("queued");
       toast.info("Video queued — generating in background (60–90s)…");
 
-      // Stop polling after 3 minutes regardless
       const timeoutId = setTimeout(() => {
         clearInterval(pollRef.current!);
         setVideoStatus("failed");
         toast.error("Video generation timed out. Please try again.");
       }, 180_000);
 
-      // Poll for status every 5 seconds
       pollRef.current = setInterval(async () => {
         try {
           const statusRes = await fetch(`/api/generate-video/status?request_id=${requestId}&scene_id=${local.id}`);
-          const statusData = await statusRes.json() as { status: string; video_url?: string; error?: string };
-          console.log("[video] status poll:", statusData.status, statusData.video_url ?? "no url");
+          const statusData = await statusRes.json() as { status: string; video_url?: string };
 
           if (statusData.status === "IN_PROGRESS") {
             setVideoStatus("processing");
@@ -303,52 +256,6 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, canGene
           />
         </div>
 
-        {/* Voiceover */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Voiceover
-            </p>
-            {canGenerateVoiceover && local.voiceover_text && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-6 text-xs px-2 gap-1"
-                onClick={generateVoiceover}
-                disabled={generatingAudio}
-              >
-                {generatingAudio ? (
-                  <>
-                    <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />
-                    Generating…
-                  </>
-                ) : (
-                  <>🎙 Generate Audio</>
-                )}
-              </Button>
-            )}
-          </div>
-          <EditableText
-            value={local.voiceover_text}
-            placeholder="Add voiceover narration…"
-            onChange={(v) => updateField("voiceover_text", v)}
-            italic
-          />
-          {audioUrl && (
-            <div className="mt-2 flex items-center gap-2">
-              <audio ref={audioRef} src={audioUrl} controls className="h-8 flex-1 min-w-0" />
-              <Button size="sm" variant="ghost" className="h-8 text-xs px-2 shrink-0" onClick={downloadAudio}>
-                ↓ MP3
-              </Button>
-            </div>
-          )}
-          {!canGenerateVoiceover && (
-            <p className="text-xs text-muted-foreground mt-1">
-              🎙 <a href="/dashboard/upgrade" className="underline hover:text-foreground">Upgrade to Creator</a> to generate audio
-            </p>
-          )}
-        </div>
-
         {/* On-screen text */}
         <div>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
@@ -374,7 +281,7 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, canGene
 
         <Separator />
 
-        {/* AI Generation Prompt */}
+        {/* AI Generation Prompt + Voiceover + Video */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-primary uppercase tracking-wide">
@@ -405,6 +312,7 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, canGene
               </Button>
             </div>
           </div>
+
           <div className="bg-muted/60 rounded-md p-3 border border-primary/20">
             <EditableText
               value={local.ai_generation_prompt}
@@ -413,6 +321,21 @@ export default function SceneCard({ scene, canGenerateVoiceover = false, canGene
               mono
             />
           </div>
+
+          {/* Voiceover script — shown inside the video section */}
+          {local.voiceover_text && (
+            <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+              <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">
+                Voiceover
+              </p>
+              <EditableText
+                value={local.voiceover_text}
+                placeholder="Add voiceover narration…"
+                onChange={(v) => updateField("voiceover_text", v)}
+                italic
+              />
+            </div>
+          )}
 
           {/* Video player */}
           {videoStatus !== "idle" && (
