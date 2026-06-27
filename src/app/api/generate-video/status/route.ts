@@ -3,7 +3,7 @@ import { fal } from "@fal-ai/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const FAL_MODEL = "fal-ai/veo3-fast";
+const FAL_MODEL = "fal-ai/veo3";
 
 type KlingResult = Record<string, unknown> & {
   video?: { url: string };
@@ -25,9 +25,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "request_id is required" }, { status: 422 });
     }
 
-    const apiKey = process.env.NODE_ENV === "production"
-      ? process.env.FAL_KEY
-      : (process.env.FAL_KEY_TEST ?? process.env.FAL_KEY);
+    const apiKey = process.env.FAL_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "Video generation not configured" }, { status: 500 });
     }
@@ -58,7 +56,8 @@ export async function GET(request: Request) {
     // IN_QUEUE or IN_PROGRESS
     return NextResponse.json({ status: statusStr });
   } catch (err) {
-    console.error("[generate-video/status] Error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[generate-video/status] Error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

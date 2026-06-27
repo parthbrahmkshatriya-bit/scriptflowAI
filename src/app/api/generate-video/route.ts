@@ -5,8 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { VIDEO_LIMITS } from "@/lib/constants";
 import type { Plan } from "@/types/database";
 
-// Veo 3 Fast — generates video WITH audio (narration, SFX) in one prompt
-const FAL_MODEL = "fal-ai/veo3-fast";
+// Veo 3 — generates video WITH audio (narration, SFX) in one prompt
+const FAL_MODEL = "fal-ai/veo3";
 
 export async function POST(request: Request) {
   try {
@@ -16,9 +16,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const apiKey = process.env.NODE_ENV === "production"
-      ? process.env.FAL_KEY
-      : (process.env.FAL_KEY_TEST ?? process.env.FAL_KEY);
+    const apiKey = process.env.FAL_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "Video generation not configured" }, { status: 500 });
     }
@@ -75,10 +73,7 @@ export async function POST(request: Request) {
 
     const finalPrompt = (prompt.trim() + voiceoverLine).slice(0, 2000);
 
-    // Veo 3 on Fal.AI only accepts "9:16", "16:9", or "1:1"
-    const veoAspect = (["9:16", "16:9", "1:1"].includes(aspect_ratio)
-      ? aspect_ratio
-      : "9:16") as "9:16" | "16:9" | "1:1";
+    const veoAspect: "9:16" | "16:9" = aspect_ratio === "16:9" ? "16:9" : "9:16";
 
     fal.config({ credentials: apiKey });
 
@@ -106,7 +101,8 @@ export async function POST(request: Request) {
       used_credit: !hasMonthlyQuota,
     });
   } catch (err) {
-    console.error("[generate-video] Unexpected error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[generate-video] Error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
