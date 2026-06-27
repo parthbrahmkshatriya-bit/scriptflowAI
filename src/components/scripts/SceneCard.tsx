@@ -101,7 +101,10 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
   const [copied, setCopied] = useState(false);
   const [videoStatus, setVideoStatus] = useState<VideoStatus>(scene.video_url ? "done" : "idle");
   const [videoUrl, setVideoUrl] = useState<string | null>(scene.video_url ?? null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const updateField = useCallback(
     (field: EditableField, value: string) => {
@@ -140,8 +143,9 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
   async function generateVideo() {
     setVideoStatus("submitting");
     setVideoUrl(null);
+    setAudioUrl(null);
+
     try {
-      // Append voiceover as context so the AI generates visuals that match the narration
       const promptWithVoiceover = local.voiceover_text
         ? `${local.ai_generation_prompt}\n\nVoiceover: "${local.voiceover_text}"`
         : local.ai_generation_prompt;
@@ -152,30 +156,46 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
         body: JSON.stringify({
           prompt: promptWithVoiceover,
           duration_seconds: local.duration_seconds,
+          voiceover_text: local.voiceover_text ?? null,
         }),
       });
-      const data = await res.json() as { request_id?: string; error?: string };
+
+      const data = await res.json() as {
+        request_id?: string;
+        audio_url?: string | null;
+        error?: string;
+      };
+
       if (!res.ok) {
-        toast.error(data.error ?? "Failed to start video generation");
+        toast.error(data.error ?? "Failed to start generation");
         setVideoStatus("failed");
         return;
       }
+
+      // Audio is ready immediately from ElevenLabs
+      if (data.audio_url) {
+        setAudioUrl(data.audio_url);
+        toast.success("Voiceover audio ready — video generating in background…");
+      } else {
+        toast.info("Video queued — Kling 2.0 takes 2–5 minutes, please wait…");
+      }
+
       const requestId = data.request_id!;
       setVideoStatus("queued");
-      toast.info("Video queued — Kling 2.0 takes 2–5 minutes, please wait…");
 
-      // 10 minute timeout — Kling 2.0 can take up to 8 min for 10s clips
       const timeoutId = setTimeout(() => {
         clearInterval(pollRef.current!);
         setVideoStatus("failed");
-        toast.error("Video generation timed out after 10 minutes. Please try again.");
+        toast.error("Video generation timed out. Please try again.");
       }, 600_000);
 
       let consecutiveErrors = 0;
 
       pollRef.current = setInterval(async () => {
         try {
-          const statusRes = await fetch(`/api/generate-video/status?request_id=${requestId}&scene_id=${local.id}`);
+          const statusRes = await fetch(
+            `/api/generate-video/status?request_id=${requestId}&scene_id=${local.id}`
+          );
           const statusData = await statusRes.json() as { status: string; video_url?: string };
           consecutiveErrors = 0;
 
@@ -187,7 +207,7 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
             if (statusData.video_url) {
               setVideoUrl(statusData.video_url);
               setVideoStatus("done");
-              toast.success("Video ready!");
+              toast.success("Video ready! Press play to watch with voiceover.");
             } else {
               setVideoStatus("failed");
               toast.error("Video completed but no URL returned. Please try again.");
@@ -199,7 +219,6 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
             toast.error("Video generation failed. Please try again.");
           }
         } catch {
-          // Don't abort on a single network blip — allow up to 3 consecutive errors
           consecutiveErrors += 1;
           if (consecutiveErrors >= 3) {
             clearInterval(pollRef.current!);
@@ -211,8 +230,31 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
       }, 8000);
     } catch {
       setVideoStatus("failed");
-      toast.error("Failed to start video generation.");
+      toast.error("Failed to start generation.");
     }
+  }
+
+  // Keep audio in sync with video
+  function onVideoPlay() {
+    const audio = audioRef.current;
+    const video = videoRef.current;
+    if (!audio || !video) return;
+    audio.currentTime = video.currentTime;
+    audio.play().catch(() => {/* autoplay may be blocked — user tapped play so it should be fine */});
+  }
+
+  function onVideoPause() {
+    audioRef.current?.pause();
+  }
+
+  function onVideoSeeked() {
+    const audio = audioRef.current;
+    const video = videoRef.current;
+    if (audio && video) audio.currentTime = video.currentTime;
+  }
+
+  function onVideoEnded() {
+    audioRef.current?.pause();
   }
 
   function downloadVideo() {
@@ -223,13 +265,15 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
     a.click();
   }
 
+  const hasVoiceover = !!local.voiceover_text?.trim();
+
   const videoStatusLabel: Record<VideoStatus, string> = {
-    idle: "🎬 Generate Video",
-    submitting: "Submitting…",
-    queued: "In queue…",
-    processing: "Generating…",
-    done: "🎬 Regenerate",
-    failed: "🎬 Retry",
+    idle: hasVoiceover ? "🎬 Generate Video + Audio" : "🎬 Generate Video",
+    submitting: "Preparing…",
+    queued: "Video in queue…",
+    processing: "Generating video…",
+    done: hasVoiceover ? "🎬 Regenerate Video + Audio" : "🎬 Regenerate",
+    failed: hasVoiceover ? "🎬 Retry Video + Audio" : "🎬 Retry",
   };
 
   return (
@@ -314,9 +358,15 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
                   variant="outline"
                   className="h-7 text-xs gap-1"
                   onClick={generateVideo}
-                  disabled={videoStatus === "submitting" || videoStatus === "queued" || videoStatus === "processing"}
+                  disabled={
+                    videoStatus === "submitting" ||
+                    videoStatus === "queued" ||
+                    videoStatus === "processing"
+                  }
                 >
-                  {(videoStatus === "submitting" || videoStatus === "queued" || videoStatus === "processing") && (
+                  {(videoStatus === "submitting" ||
+                    videoStatus === "queued" ||
+                    videoStatus === "processing") && (
                     <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />
                   )}
                   {videoStatusLabel[videoStatus]}
@@ -333,6 +383,7 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
             </div>
           </div>
 
+          {/* Prompt + voiceover in one box */}
           <div className="bg-muted/60 rounded-md p-3 border border-primary/20 space-y-3">
             <EditableText
               value={local.ai_generation_prompt}
@@ -358,17 +409,31 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
             )}
           </div>
 
-          {/* Video player */}
+          {/* Video + synced audio player */}
           {videoStatus !== "idle" && (
             <div className="mt-3">
               {videoUrl ? (
                 <div className="space-y-2">
                   <video
+                    ref={videoRef}
                     src={videoUrl}
                     controls
                     className="w-full rounded-md max-h-80 bg-black"
                     playsInline
+                    onPlay={onVideoPlay}
+                    onPause={onVideoPause}
+                    onSeeked={onVideoSeeked}
+                    onEnded={onVideoEnded}
                   />
+                  {/* Hidden audio element — synced to video via event handlers */}
+                  {audioUrl && (
+                    <audio ref={audioRef} src={audioUrl} preload="auto" />
+                  )}
+                  {audioUrl && (
+                    <p className="text-[10px] text-muted-foreground">
+                      🔊 Voiceover audio included — press play to hear it
+                    </p>
+                  )}
                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={downloadVideo}>
                     ↓ Download MP4
                   </Button>
@@ -376,9 +441,16 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
               ) : videoStatus === "failed" ? (
                 <p className="text-xs text-destructive">Generation failed — try again.</p>
               ) : (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />
-                  {videoStatus === "queued" ? "Waiting in queue (30–90s)…" : "Generating your video…"}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />
+                    {videoStatus === "queued"
+                      ? "Video in queue — Kling 2.0 takes 2–5 min…"
+                      : "Generating your video…"}
+                  </div>
+                  {audioUrl && (
+                    <p className="text-[10px] text-green-500">✓ Voiceover audio ready</p>
+                  )}
                 </div>
               )}
             </div>
@@ -386,7 +458,11 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
 
           {!canGenerateVideo && (
             <p className="text-xs text-muted-foreground mt-2">
-              🎬 <a href="/dashboard/upgrade" className="underline hover:text-foreground">Upgrade your plan</a> to generate videos
+              🎬{" "}
+              <a href="/dashboard/upgrade" className="underline hover:text-foreground">
+                Upgrade your plan
+              </a>{" "}
+              to generate videos
             </p>
           )}
         </div>
