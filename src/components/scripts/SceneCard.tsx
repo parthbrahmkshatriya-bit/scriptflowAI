@@ -116,14 +116,17 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
   );
 
   async function copyPrompt() {
+    const text = local.voiceover_text
+      ? `${local.ai_generation_prompt}\n\nVoiceover: "${local.voiceover_text}"`
+      : local.ai_generation_prompt;
     try {
-      await navigator.clipboard.writeText(local.ai_generation_prompt);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       toast.success("Prompt copied!");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       const el = document.createElement("textarea");
-      el.value = local.ai_generation_prompt;
+      el.value = text;
       document.body.appendChild(el);
       el.select();
       document.execCommand("copy");
@@ -321,29 +324,30 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
             </div>
           </div>
 
-          <div className="bg-muted/60 rounded-md p-3 border border-primary/20">
+          <div className="bg-muted/60 rounded-md p-3 border border-primary/20 space-y-3">
             <EditableText
               value={local.ai_generation_prompt}
               placeholder="AI generation prompt…"
               onChange={(v) => updateField("ai_generation_prompt", v)}
               mono
             />
+            {local.voiceover_text && (
+              <>
+                <div className="border-t border-white/10" />
+                <div>
+                  <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">
+                    Voiceover
+                  </p>
+                  <EditableText
+                    value={local.voiceover_text}
+                    placeholder="Add voiceover narration…"
+                    onChange={(v) => updateField("voiceover_text", v)}
+                    italic
+                  />
+                </div>
+              </>
+            )}
           </div>
-
-          {/* Voiceover script — shown inside the video section */}
-          {local.voiceover_text && (
-            <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
-              <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide mb-1">
-                Voiceover
-              </p>
-              <EditableText
-                value={local.voiceover_text}
-                placeholder="Add voiceover narration…"
-                onChange={(v) => updateField("voiceover_text", v)}
-                italic
-              />
-            </div>
-          )}
 
           {/* Video player */}
           {videoStatus !== "idle" && (
