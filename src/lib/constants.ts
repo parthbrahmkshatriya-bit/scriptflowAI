@@ -336,7 +336,7 @@ export const VIDEO_LIMITS: Record<string, number> = {
   free: 0,
   creator: 15,
   studio: 50,
-  pro: 15,
+  pro: 150,
   agency: 150,
 };
 
