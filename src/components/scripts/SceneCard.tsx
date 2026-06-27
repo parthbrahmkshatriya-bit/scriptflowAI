@@ -162,18 +162,22 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
       }
       const requestId = data.request_id!;
       setVideoStatus("queued");
-      toast.info("Video queued — generating in background (60–90s)…");
+      toast.info("Video queued — Kling 2.0 takes 2–5 minutes, please wait…");
 
+      // 10 minute timeout — Kling 2.0 can take up to 8 min for 10s clips
       const timeoutId = setTimeout(() => {
         clearInterval(pollRef.current!);
         setVideoStatus("failed");
-        toast.error("Video generation timed out. Please try again.");
-      }, 180_000);
+        toast.error("Video generation timed out after 10 minutes. Please try again.");
+      }, 600_000);
+
+      let consecutiveErrors = 0;
 
       pollRef.current = setInterval(async () => {
         try {
           const statusRes = await fetch(`/api/generate-video/status?request_id=${requestId}&scene_id=${local.id}`);
           const statusData = await statusRes.json() as { status: string; video_url?: string };
+          consecutiveErrors = 0;
 
           if (statusData.status === "IN_PROGRESS") {
             setVideoStatus("processing");
@@ -195,11 +199,16 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
             toast.error("Video generation failed. Please try again.");
           }
         } catch {
-          clearInterval(pollRef.current!);
-          setVideoStatus("failed");
-          toast.error("Lost connection while generating video.");
+          // Don't abort on a single network blip — allow up to 3 consecutive errors
+          consecutiveErrors += 1;
+          if (consecutiveErrors >= 3) {
+            clearInterval(pollRef.current!);
+            clearTimeout(timeoutId);
+            setVideoStatus("failed");
+            toast.error("Lost connection while generating video.");
+          }
         }
-      }, 5000);
+      }, 8000);
     } catch {
       setVideoStatus("failed");
       toast.error("Failed to start video generation.");

@@ -46,8 +46,12 @@ export async function GET(request: Request) {
         `https://queue.fal.run/${FAL_QUEUE_BASE}/requests/${requestId}`,
         { headers: { "Authorization": `Key ${apiKey}` } }
       );
-      const result = await resultRes.json() as { video?: { url: string } };
-      const videoUrl = result.video?.url ?? null;
+      const result = await resultRes.json() as {
+        video?: { url: string };
+        videos?: Array<{ url: string }>;
+      };
+      // Kling returns either result.video.url or result.videos[0].url
+      const videoUrl = result.video?.url ?? result.videos?.[0]?.url ?? null;
 
       // Persist to DB so video survives page refresh
       if (videoUrl && sceneId) {
@@ -55,10 +59,7 @@ export async function GET(request: Request) {
         await admin
           .from("scenes")
           .update({ video_url: videoUrl })
-          .eq("id", sceneId)
-          .eq("script_id", (
-            await admin.from("scenes").select("script_id").eq("id", sceneId).single()
-          ).data?.script_id ?? "");
+          .eq("id", sceneId);
       }
 
       return NextResponse.json({ status: "COMPLETED", video_url: videoUrl });

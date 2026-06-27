@@ -30,7 +30,8 @@ export async function POST(request: Request) {
       .single();
 
     const plan = (profile?.plan ?? "free") as Plan;
-    const used = profile?.videos_used_this_month ?? 0;
+    // Default to 0 if column doesn't exist yet in DB
+    const used = (profile as Record<string, unknown>)?.videos_used_this_month as number ?? 0;
     const limit = VIDEO_LIMITS[plan] ?? 0;
 
     if (limit === 0) {
