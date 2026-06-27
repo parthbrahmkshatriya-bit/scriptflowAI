@@ -16,5 +16,6 @@ export async function getUserPlan(
 }
 
 export function canUseVideoGeneration(plan: Plan): boolean {
-  return ["studio", "agency"].includes(plan);
+  // All paid plans can generate videos; limits are enforced per-plan in VIDEO_LIMITS
+  return ["creator", "pro", "studio", "agency"].includes(plan);
 }

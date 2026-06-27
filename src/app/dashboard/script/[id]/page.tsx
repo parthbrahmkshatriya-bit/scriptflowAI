@@ -30,13 +30,12 @@ export default async function ScriptPage({ params }: Props) {
   const admin = createAdminClient();
   const { data: userProfile } = await admin
     .from("users")
-    .select("plan, videos_used_this_month")
+    .select("plan")
     .eq("id", user.id)
     .single();
   const plan = (userProfile?.plan ?? "free") as Plan;
-  const videosUsed = userProfile?.videos_used_this_month ?? 0;
-  const videoLimit = VIDEO_LIMITS[plan] ?? 0;
-  const canGenerateVideo = videoLimit > 0 && videosUsed < videoLimit;
+  // Monthly quota enforcement happens in the API; here we just gate by plan
+  const canGenerateVideo = (VIDEO_LIMITS[plan] ?? 0) > 0;
 
   const { data: script } = await supabase
     .from("scripts")

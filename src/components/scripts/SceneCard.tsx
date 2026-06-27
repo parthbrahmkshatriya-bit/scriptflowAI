@@ -373,7 +373,7 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
 
           {!canGenerateVideo && (
             <p className="text-xs text-muted-foreground mt-2">
-              🎬 <a href="/dashboard/upgrade" className="underline hover:text-foreground">Upgrade to Creator</a> to generate videos (15/month)
+              🎬 <a href="/dashboard/upgrade" className="underline hover:text-foreground">Upgrade your plan</a> to generate videos
             </p>
           )}
         </div>
