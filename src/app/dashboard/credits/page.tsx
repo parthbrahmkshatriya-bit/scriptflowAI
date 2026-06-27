@@ -23,8 +23,6 @@ export default async function CreditsPage() {
   const plan = (profile?.plan as string) ?? "free";
   const videosUsed = (profile?.videos_used_this_month as number) ?? 0;
 
-  const paypalClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? "";
-
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-8">
@@ -37,7 +35,6 @@ export default async function CreditsPage() {
         videoCredits={videoCredits}
         plan={plan}
         videosUsed={videosUsed}
-        paypalClientId={paypalClientId}
       />
     </div>
   );
