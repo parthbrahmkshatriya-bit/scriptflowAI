@@ -144,7 +144,7 @@ export default function UpgradePage() {
         order_id,
         prefill: { email: userEmail, name: userName ?? undefined },
         theme: { color: "#8B5CF6" },
-        handler: async (response) => {
+        handler: async (response: RazorpayResponse) => {
           try {
             const verifyRes = await fetch("/api/payment/verify", {
               method: "POST",

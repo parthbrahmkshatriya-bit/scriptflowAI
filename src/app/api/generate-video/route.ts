@@ -26,24 +26,32 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const { data: profile } = await admin
       .from("users")
-      .select("plan, videos_used_this_month")
+      .select("plan, videos_used_this_month, video_credits")
       .eq("id", user.id)
       .single();
 
     const plan = (profile?.plan ?? "free") as Plan;
     const used = ((profile as Record<string, unknown>)?.videos_used_this_month as number) ?? 0;
+    const videoCredits = ((profile as Record<string, unknown>)?.video_credits as number) ?? 0;
     const limit = VIDEO_LIMITS[plan] ?? 0;
+    const hasMonthlyQuota = used < limit;
+    const hasCredits = videoCredits > 0;
 
-    if (limit === 0) {
+    if (limit === 0 && !hasCredits) {
       return NextResponse.json(
         { error: "Video generation is available on Creator plan and above. Upgrade to unlock." },
         { status: 403 }
       );
     }
 
-    if (used >= limit) {
+    if (!hasMonthlyQuota && !hasCredits) {
       return NextResponse.json(
-        { error: `You've used all ${limit} video generations this month. Upgrade for more.`, used, limit },
+        {
+          error: `Monthly limit reached (${limit}/${limit}). Buy credit packs to keep generating.`,
+          used,
+          limit,
+          credits: videoCredits,
+        },
         { status: 403 }
       );
     }
@@ -82,12 +90,21 @@ export async function POST(request: Request) {
       },
     });
 
-    await admin
-      .from("users")
-      .update({ videos_used_this_month: used + 1 })
-      .eq("id", user.id);
+    // Use monthly quota first; fall back to purchased credits
+    if (hasMonthlyQuota) {
+      await admin.from("users").update({ videos_used_this_month: used + 1 }).eq("id", user.id);
+    } else {
+      await admin.from("users").update({ video_credits: videoCredits - 1 }).eq("id", user.id);
+    }
 
-    return NextResponse.json({ request_id, model: FAL_MODEL, used: used + 1, limit });
+    return NextResponse.json({
+      request_id,
+      model: FAL_MODEL,
+      used: hasMonthlyQuota ? used + 1 : used,
+      limit,
+      credits_remaining: hasMonthlyQuota ? videoCredits : videoCredits - 1,
+      used_credit: !hasMonthlyQuota,
+    });
   } catch (err) {
     console.error("[generate-video] Unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

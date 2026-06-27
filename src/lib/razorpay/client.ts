@@ -42,6 +42,19 @@ export async function createRazorpayOrder(
   return data as RazorpayOrder;
 }
 
+export async function verifyPaymentSignature(
+  orderId: string,
+  paymentId: string,
+  signature: string
+): Promise<boolean> {
+  const { createHmac } = await import("crypto");
+  const secret = process.env.RAZORPAY_KEY_SECRET ?? "";
+  const expected = createHmac("sha256", secret)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
+  return expected === signature;
+}
+
 export async function verifyWebhookSignature(
   body: string,
   signature: string,

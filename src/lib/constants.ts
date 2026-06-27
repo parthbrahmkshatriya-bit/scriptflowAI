@@ -12,6 +12,52 @@ import type {
 } from '@/types/database';
 
 // ============================================================================
+// VIDEO CREDIT PACKS (one-time purchase, no expiry)
+// ============================================================================
+
+export interface CreditPack {
+  id: string;
+  label: string;
+  videos: number;
+  inrPaise: number;    // amount in paise for Razorpay
+  usdCents: number;    // amount in cents for PayPal
+  usdDisplay: string;  // e.g. "5.99"
+  inrDisplay: string;  // e.g. "₹499"
+  badge?: string;
+}
+
+export const CREDIT_PACKS: CreditPack[] = [
+  {
+    id: 'pack_5',
+    label: 'Starter Pack',
+    videos: 5,
+    inrPaise: 49900,
+    usdCents: 599,
+    usdDisplay: '5.99',
+    inrDisplay: '₹499',
+  },
+  {
+    id: 'pack_15',
+    label: 'Creator Pack',
+    videos: 15,
+    inrPaise: 129900,
+    usdCents: 1499,
+    usdDisplay: '14.99',
+    inrDisplay: '₹1,299',
+    badge: 'Best Value',
+  },
+  {
+    id: 'pack_30',
+    label: 'Studio Pack',
+    videos: 30,
+    inrPaise: 249900,
+    usdCents: 2899,
+    usdDisplay: '28.99',
+    inrDisplay: '₹2,499',
+  },
+];
+
+// ============================================================================
 // USAGE LIMITS (Scripts per month)
 // ============================================================================
 

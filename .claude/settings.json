@@ -50,7 +50,14 @@
       "Bash(curl -s -o /dev/null -w \" | 3002: %{http_code}\" http://localhost:3002/)",
       "Bash(node -e ' *)",
       "Bash(node screenshot-pricing.mjs)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "PowerShell(Get-Process -Name node -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/)",
+      "Bash(gh pr *)",
+      "PowerShell(gh pr list --state all --limit 10 2>&1)",
+      "PowerShell(git push origin main 2>&1)",
+      "Bash(node -e \"require\\('razorpay'\\)\")"
     ],
     "additionalDirectories": [
       "\\tmp",
