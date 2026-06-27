@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
+import { fal } from "@fal-ai/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// Queue status/result use base path only (no /text-to-video suffix)
-const FAL_QUEUE_BASE = "fal-ai/kling-video/v2/master";
+const FAL_MODEL = "fal-ai/kling-video/v2/master/text-to-video";
+
+type KlingResult = Record<string, unknown> & {
+  video?: { url: string };
+  videos?: Array<{ url: string }>;
+}
 
 export async function GET(request: Request) {
   try {
@@ -15,7 +20,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const requestId = searchParams.get("request_id");
-    const sceneId = searchParams.get("scene_id"); // optional — used to persist video_url
+    const sceneId = searchParams.get("scene_id");
     if (!requestId) {
       return NextResponse.json({ error: "request_id is required" }, { status: 422 });
     }
@@ -27,49 +32,31 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Video generation not configured" }, { status: 500 });
     }
 
-    // Check status from Fal.AI queue
-    const statusRes = await fetch(
-      `https://queue.fal.run/${FAL_QUEUE_BASE}/requests/${requestId}/status`,
-      { headers: { "Authorization": `Key ${apiKey}` } }
-    );
+    fal.config({ credentials: apiKey });
 
-    if (!statusRes.ok) {
-      return NextResponse.json({ error: "Failed to check job status" }, { status: 502 });
-    }
+    const queueStatus = await fal.queue.status(FAL_MODEL, { requestId, logs: false });
+    const statusStr = (queueStatus as { status: string }).status;
 
-    const status = await statusRes.json() as {
-      status: "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
-    };
+    if (statusStr === "COMPLETED") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await fal.queue.result<any>(FAL_MODEL, { requestId });
+      const data = result.data as KlingResult | undefined;
+      const videoUrl = data?.video?.url ?? data?.videos?.[0]?.url ?? null;
 
-    if (status.status === "COMPLETED") {
-      const resultRes = await fetch(
-        `https://queue.fal.run/${FAL_QUEUE_BASE}/requests/${requestId}`,
-        { headers: { "Authorization": `Key ${apiKey}` } }
-      );
-      const result = await resultRes.json() as {
-        video?: { url: string };
-        videos?: Array<{ url: string }>;
-      };
-      // Kling returns either result.video.url or result.videos[0].url
-      const videoUrl = result.video?.url ?? result.videos?.[0]?.url ?? null;
-
-      // Persist to DB so video survives page refresh
       if (videoUrl && sceneId) {
         const admin = createAdminClient();
-        await admin
-          .from("scenes")
-          .update({ video_url: videoUrl })
-          .eq("id", sceneId);
+        await admin.from("scenes").update({ video_url: videoUrl }).eq("id", sceneId);
       }
 
       return NextResponse.json({ status: "COMPLETED", video_url: videoUrl });
     }
 
-    if (status.status === "FAILED") {
-      return NextResponse.json({ status: "FAILED", error: "Video generation failed" });
+    if (statusStr === "FAILED") {
+      return NextResponse.json({ status: "FAILED", error: "Video generation failed on Fal.AI" });
     }
 
-    return NextResponse.json({ status: status.status });
+    // IN_QUEUE or IN_PROGRESS
+    return NextResponse.json({ status: statusStr });
   } catch (err) {
     console.error("[generate-video/status] Error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

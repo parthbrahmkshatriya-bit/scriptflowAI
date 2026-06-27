@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
+import { fal } from "@fal-ai/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { VIDEO_LIMITS } from "@/lib/constants";
 import type { Plan } from "@/types/database";
 
-// Kling 2.0 via Fal.AI queue — supports 5s or 10s clips
 const FAL_MODEL = "fal-ai/kling-video/v2/master/text-to-video";
 
 export async function POST(request: Request) {
@@ -30,8 +30,7 @@ export async function POST(request: Request) {
       .single();
 
     const plan = (profile?.plan ?? "free") as Plan;
-    // Default to 0 if column doesn't exist yet in DB
-    const used = (profile as Record<string, unknown>)?.videos_used_this_month as number ?? 0;
+    const used = ((profile as Record<string, unknown>)?.videos_used_this_month as number) ?? 0;
     const limit = VIDEO_LIMITS[plan] ?? 0;
 
     if (limit === 0) {
@@ -62,30 +61,21 @@ export async function POST(request: Request) {
     // Clamp prompt to 2000 chars (Kling limit)
     const finalPrompt = prompt.trim().slice(0, 2000);
 
-    // Kling 2.0 only supports "5" or "10" — pick based on scene duration
+    // Kling 2.0 only supports "5" or "10"
     const klingDuration: "5" | "10" = (duration_seconds ?? 5) > 5 ? "10" : "5";
+    // Kling only accepts "9:16", "16:9", "1:1"
+    const klingAspect = (["9:16", "16:9", "1:1"].includes(aspect_ratio) ? aspect_ratio : "9:16") as "9:16" | "16:9" | "1:1";
 
-    // Submit to Fal.AI queue — returns immediately with a request_id
-    const submitRes = await fetch(`https://queue.fal.run/${FAL_MODEL}`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Key ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    fal.config({ credentials: apiKey });
+
+    // Use SDK so queue URLs are built correctly
+    const { request_id } = await fal.queue.submit(FAL_MODEL, {
+      input: {
         prompt: finalPrompt,
         duration: klingDuration,
-        aspect_ratio,
-      }),
+        aspect_ratio: klingAspect,
+      },
     });
-
-    if (!submitRes.ok) {
-      const errText = await submitRes.text().catch(() => "unknown");
-      console.error("[generate-video] Fal.AI submit error:", submitRes.status, errText);
-      return NextResponse.json({ error: "Failed to submit video generation job" }, { status: 502 });
-    }
-
-    const { request_id } = await submitRes.json() as { request_id: string };
 
     await admin
       .from("users")
