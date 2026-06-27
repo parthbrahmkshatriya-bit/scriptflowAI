@@ -5,8 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { VIDEO_LIMITS } from "@/lib/constants";
 import type { Plan } from "@/types/database";
 
-const FAL_MODEL = "fal-ai/kling-video/v2/master/text-to-video";
-const ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"; // Rachel — clear, natural narration
+// Veo 3 Fast — generates video WITH audio (narration, SFX) in one prompt
+const FAL_MODEL = "fal-ai/veo3-fast";
 
 export async function POST(request: Request) {
   try {
@@ -49,10 +49,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { prompt, aspect_ratio = "9:16", duration_seconds, voiceover_text } = body as {
+    const { prompt, aspect_ratio = "9:16", voiceover_text } = body as {
       prompt: string;
       aspect_ratio?: string;
-      duration_seconds?: number;
       voiceover_text?: string | null;
     };
 
@@ -60,63 +59,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "prompt is required" }, { status: 422 });
     }
 
-    const finalPrompt = prompt.trim().slice(0, 2000);
-    const klingDuration: "5" | "10" = (duration_seconds ?? 5) > 5 ? "10" : "5";
-    const klingAspect = (["9:16", "16:9", "1:1"].includes(aspect_ratio)
+    // Build a single Veo 3 prompt that includes both the visual scene and voiceover narration.
+    // Veo 3 generates audio natively — narration, ambient sound, SFX — all from one prompt.
+    const voiceoverLine = voiceover_text?.trim()
+      ? `\n\nNarrator voiceover (spoken clearly): "${voiceover_text.trim()}"`
+      : "";
+
+    const finalPrompt = (prompt.trim() + voiceoverLine).slice(0, 2000);
+
+    // Veo 3 on Fal.AI only accepts "9:16", "16:9", or "1:1"
+    const veoAspect = (["9:16", "16:9", "1:1"].includes(aspect_ratio)
       ? aspect_ratio
       : "9:16") as "9:16" | "16:9" | "1:1";
 
     fal.config({ credentials: apiKey });
 
-    // Submit video to Kling queue (returns immediately with request_id)
+    // Submit to queue — Veo 3 Fast typically takes 2–4 minutes
     const { request_id } = await fal.queue.submit(FAL_MODEL, {
       input: {
         prompt: finalPrompt,
-        duration: klingDuration,
-        aspect_ratio: klingAspect,
+        aspect_ratio: veoAspect,
       },
     });
-
-    // Generate voiceover audio via ElevenLabs in parallel (fast, ~3–5s)
-    let audioUrl: string | null = null;
-    const elevenKey = process.env.ELEVENLABS_API_KEY;
-    if (voiceover_text?.trim() && elevenKey) {
-      try {
-        const audioRes = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`,
-          {
-            method: "POST",
-            headers: {
-              "xi-api-key": elevenKey,
-              "Content-Type": "application/json",
-              "Accept": "audio/mpeg",
-            },
-            body: JSON.stringify({
-              text: voiceover_text.trim(),
-              model_id: "eleven_turbo_v2_5",
-              voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-            }),
-          }
-        );
-        if (audioRes.ok) {
-          const buffer = await audioRes.arrayBuffer();
-          const base64 = Buffer.from(buffer).toString("base64");
-          audioUrl = `data:audio/mpeg;base64,${base64}`;
-        } else {
-          console.warn("[generate-video] ElevenLabs failed:", audioRes.status);
-        }
-      } catch (err) {
-        // Non-fatal — video still generates without audio
-        console.warn("[generate-video] ElevenLabs error:", err);
-      }
-    }
 
     await admin
       .from("users")
       .update({ videos_used_this_month: used + 1 })
       .eq("id", user.id);
 
-    return NextResponse.json({ request_id, audio_url: audioUrl, model: FAL_MODEL, used: used + 1, limit });
+    return NextResponse.json({ request_id, model: FAL_MODEL, used: used + 1, limit });
   } catch (err) {
     console.error("[generate-video] Unexpected error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

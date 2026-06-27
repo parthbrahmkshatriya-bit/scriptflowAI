@@ -3,7 +3,7 @@ import { fal } from "@fal-ai/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const FAL_MODEL = "fal-ai/kling-video/v2/master/text-to-video";
+const FAL_MODEL = "fal-ai/veo3-fast";
 
 type KlingResult = Record<string, unknown> & {
   video?: { url: string };
