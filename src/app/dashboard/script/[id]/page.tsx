@@ -100,6 +100,7 @@ export default async function ScriptPage({ params }: Props) {
 
       <ScriptEditor
         scriptId={id}
+        scriptTitle={script.title}
         initialScenes={scenes ?? []}
         canGenerateVideo={canGenerateVideo}
       />

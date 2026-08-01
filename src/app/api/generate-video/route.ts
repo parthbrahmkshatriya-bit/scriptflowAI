@@ -13,7 +13,10 @@ export async function POST(request: Request) {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.error("[generate-video] Auth failed — authError:", authError?.message ?? "none", "user:", user ? "present" : "null");
+      return NextResponse.json({
+        error: authError ? `Auth error: ${authError.message}` : "Not authenticated — please log in again",
+      }, { status: 401 });
     }
 
     const apiKey = process.env.FAL_KEY;

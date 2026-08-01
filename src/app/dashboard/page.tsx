@@ -9,6 +9,7 @@ import { Sparkles } from "lucide-react";
 import {
   PLAN_LABELS,
   PLAN_LIMITS,
+  VIDEO_LIMITS,
   PLATFORM_LABELS,
   VISUAL_STYLE_LABELS,
   AI_TOOL_LABELS,
@@ -35,7 +36,7 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("full_name, plan, scripts_used_this_month")
+    .select("full_name, plan, scripts_used_this_month, video_credits, videos_used_this_month")
     .eq("id", user.id)
     .single();
 
@@ -63,8 +64,10 @@ export default async function DashboardPage() {
   const used = profile?.scripts_used_this_month ?? 0;
   const limit = PLAN_LIMITS[plan];
   const firstName = profile?.full_name?.split(" ")[0] ?? "there";
-  const usagePct =
-    limit !== Infinity ? Math.min((used / limit) * 100, 100) : 0;
+  const usagePct = limit !== Infinity ? Math.min((used / limit) * 100, 100) : 0;
+  const videoCredits = (profile as Record<string, unknown>)?.video_credits as number ?? 0;
+  const videosUsed = (profile as Record<string, unknown>)?.videos_used_this_month as number ?? 0;
+  const videoLimit = VIDEO_LIMITS[plan] ?? 0;
 
   return (
     <div className="space-y-8">
@@ -88,7 +91,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
         {/* Scripts This Month */}
         <div className="relative rounded-xl p-px bg-gradient-to-br from-violet-500/40 via-purple-500/20 to-transparent">
@@ -137,6 +140,28 @@ export default async function DashboardPage() {
             <p className="text-sm font-medium text-muted-foreground">Favorites</p>
             <div className="text-3xl font-bold mt-2">{favCount ?? 0}</div>
             <p className="text-xs text-muted-foreground mt-1">starred scripts</p>
+          </div>
+        </div>
+
+        {/* Video Credits */}
+        <div className="relative rounded-xl p-px bg-gradient-to-br from-emerald-500/40 via-teal-500/20 to-transparent">
+          <div className="rounded-[11px] bg-card p-4 h-full flex flex-col justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Video Credits</p>
+              <div className="flex items-end gap-1.5 mt-2">
+                <span className="text-3xl font-bold">{videoCredits}</span>
+                <span className="text-sm text-muted-foreground pb-0.5">paid</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {videosUsed}/{videoLimit === 0 ? "–" : videoLimit} plan videos used
+              </p>
+            </div>
+            <Link
+              href="/dashboard/credits"
+              className="text-xs font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
+            >
+              + Buy more credits →
+            </Link>
           </div>
         </div>
 

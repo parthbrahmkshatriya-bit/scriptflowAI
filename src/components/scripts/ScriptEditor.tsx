@@ -5,16 +5,18 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import SceneCard from "@/components/scripts/SceneCard";
 import CopyAllButton from "@/components/scripts/CopyAllButton";
+import StitchButton from "@/components/scripts/StitchButton";
 import { Separator } from "@/components/ui/separator";
 import type { Scene } from "@/types/database";
 
 interface Props {
   scriptId: string;
+  scriptTitle: string;
   initialScenes: Scene[];
   canGenerateVideo: boolean;
 }
 
-export default function ScriptEditor({ scriptId, initialScenes, canGenerateVideo }: Props) {
+export default function ScriptEditor({ scriptId, scriptTitle, initialScenes, canGenerateVideo }: Props) {
   const [scenes, setScenes] = useState<Scene[]>(initialScenes);
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -56,9 +58,10 @@ export default function ScriptEditor({ scriptId, initialScenes, canGenerateVideo
 
   return (
     <>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <h2 className="font-semibold text-lg">Scenes</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <StitchButton scenes={scenes} scriptTitle={scriptTitle} />
           <CopyAllButton text={allPrompts} />
           {isDirty && (
             <Button

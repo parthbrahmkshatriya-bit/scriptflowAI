@@ -89,7 +89,6 @@ export async function POST(request: Request) {
       .eq("id", user.id)
       .single();
 
-    console.log("[generate] Profile lookup result — error:", profileError?.code ?? "none");
     if (profileError && profileError.code === "PGRST116") {
       // Profile doesn't exist — create it
       await admin.from("users").insert({
@@ -125,7 +124,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Build prompt and call Claude
+    // Build system prompt
     const systemPrompt = buildSystemPrompt({
       aiTool: ai_tool,
       visualStyle: visual_style,
@@ -137,52 +136,41 @@ export async function POST(request: Request) {
 
     // Build user message content (text-only or with image)
     const userText = `Video concept: ${concept}\n\nGenerate the complete production script as JSON.`;
-    type ContentBlock =
-      | { type: "text"; text: string }
-      | { type: "image"; source: { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/webp"; data: string } };
 
-    let userContent: string | ContentBlock[] = userText;
+    // Parse data URL with string ops instead of regex — a regex with a large capture group
+    // on a multi-MB base64 string can overflow the call stack in V8's regexp engine.
+    let userContent: string | Array<{ type: string; [k: string]: unknown }> = userText;
     if (image_base64) {
-      const match = image_base64.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
-      if (match) {
-        userContent = [
-          {
-            type: "image" as const,
-            source: {
-              type: "base64" as const,
-              media_type: match[1] as "image/jpeg" | "image/png" | "image/webp",
-              data: match[2],
-            },
-          },
-          { type: "text" as const, text: userText },
-        ];
+      const sepIdx = image_base64.indexOf(";base64,");
+      if (sepIdx !== -1 && image_base64.startsWith("data:image/")) {
+        const mediaType = image_base64.slice(5, sepIdx); // e.g. "image/jpeg"
+        const data = image_base64.slice(sepIdx + 8);     // everything after ";base64,"
+        if (mediaType === "image/jpeg" || mediaType === "image/png" || mediaType === "image/webp") {
+          userContent = [
+            { type: "image", source: { type: "base64", media_type: mediaType, data } },
+            { type: "text", text: userText },
+          ];
+        }
       }
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    console.log("[generate] ANTHROPIC_API_KEY prefix:", apiKey?.slice(0, 10) ?? "MISSING");
-    console.log("[generate] Using model:", CLAUDE_MODEL);
-
     if (!apiKey) {
       return NextResponse.json({ error: "AI API key not configured" }, { status: 500 });
     }
 
     const anthropic = new Anthropic({ apiKey });
-
     const startTime = Date.now();
 
     let aiResponse: string;
     try {
-      console.log("[generate] Calling Claude API...");
       const message = await anthropic.messages.create({
         model: CLAUDE_MODEL,
         max_tokens: 4096,
         system: systemPrompt,
         messages: [{ role: "user", content: userContent as Parameters<typeof anthropic.messages.create>[0]["messages"][0]["content"] }],
       });
-      console.log("[generate] Claude response received, stop_reason:", message.stop_reason);
       aiResponse = message.content[0].type === "text" ? message.content[0].text : "";
-      console.log("[generate] Raw AI response (first 200 chars):", aiResponse.slice(0, 200));
     } catch (aiError) {
       console.error("[generate] Claude API error (attempt 1):", aiError);
       // Retry once
@@ -208,7 +196,6 @@ export async function POST(request: Request) {
     // Parse and validate JSON output
     let parsed_ai: ReturnType<typeof scriptOutputSchema.parse>;
     try {
-      // Strip any accidental markdown code fences
       const clean = aiResponse.replace(/^```json?\n?/, "").replace(/\n?```$/, "").trim();
       const raw = JSON.parse(clean);
       parsed_ai = scriptOutputSchema.parse(raw);
@@ -276,7 +263,8 @@ export async function POST(request: Request) {
       generation_time_ms: generationTimeMs,
     });
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     console.error("Unexpected error in /api/generate:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: message || "Internal server error" }, { status: 500 });
   }
 }
