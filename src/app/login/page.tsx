@@ -48,8 +48,8 @@ function LoginForm() {
   }
 
   useEffect(() => {
-    if (searchParams.get("verified") === "true") {
-      toast.success("Email verified successfully! Please sign in.");
+    if (searchParams.get("error") === "auth_failed") {
+      toast.error("Authentication failed. Please try again.");
     }
   }, [searchParams]);
 

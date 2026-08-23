@@ -9,15 +9,12 @@ export async function GET(request: NextRequest) {
   const redirect = searchParams.get("redirect") || "/dashboard";
 
   if (code) {
-    // Build the redirect response first so we can attach session cookies directly
-    // onto it. If we use next/headers cookies() + a separate NextResponse.redirect(),
-    // the cookies end up on a different response object and are lost.
-    const redirectUrl =
-      type === "email_confirm"
-        ? `${origin}/login?verified=true`
-        : `${origin}${redirect}`;
+    const isEmailConfirm = type === "email_confirm";
 
-    const response = NextResponse.redirect(redirectUrl);
+    // After email confirmation: land on dashboard (user is already signed in from exchangeCodeForSession).
+    // After OAuth / magic link: go to the originally requested page.
+    const destination = isEmailConfirm ? "/dashboard" : redirect;
+    const response = NextResponse.redirect(`${origin}${destination}`);
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,27 +35,20 @@ export async function GET(request: NextRequest) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (type === "email_confirm") {
-      // Fire owner notification — get user details before signing out
+    if (error) {
+      console.error("[auth/callback] exchangeCodeForSession error:", error.message);
+      return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+    }
+
+    // Send welcome email for new signups (fire-and-forget, never block redirect)
+    if (isEmailConfirm) {
       const { data: { user: newUser } } = await supabase.auth.getUser();
       if (newUser?.email) {
         sendWelcomeEmail({
           userEmail: newUser.email,
           userName: newUser.user_metadata?.full_name ?? null,
-        }).catch(() => {}); // fire-and-forget, never block the redirect
+        }).catch(() => {});
       }
-
-      await supabase.auth.signOut();
-      // Clear session cookies on the response before redirecting to login
-      response.cookies.getAll().forEach((c) => {
-        if (c.name.startsWith("sb-")) response.cookies.delete(c.name);
-      });
-      return response;
-    }
-
-    if (error) {
-      console.error("[auth/callback] exchangeCodeForSession error:", error.message);
-      return NextResponse.redirect(`${origin}/login?error=auth_failed`);
     }
 
     return response;
