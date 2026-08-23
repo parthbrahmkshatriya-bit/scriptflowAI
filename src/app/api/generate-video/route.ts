@@ -3,6 +3,7 @@ import { fal } from "@fal-ai/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { VIDEO_LIMITS } from "@/lib/constants";
+import { checkUserSecurity, checkVideoRateLimit } from "@/lib/security/check-user";
 import type { Plan } from "@/types/database";
 
 const FAL_MODEL_PRO = "fal-ai/veo3";
@@ -22,6 +23,21 @@ export async function POST(request: Request) {
     const apiKey = process.env.FAL_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "Video generation not configured" }, { status: 500 });
+    }
+
+    // Security: ban check + rate limit before any DB writes
+    const [secCheck, rateCheck] = await Promise.all([
+      checkUserSecurity(user.id),
+      checkVideoRateLimit(user.id),
+    ]);
+    if (secCheck.banned) {
+      return NextResponse.json({ error: secCheck.reason }, { status: 403 });
+    }
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: `Too many video requests. Please wait ${rateCheck.retryAfterSeconds}s before generating again.` },
+        { status: 429, headers: { "Retry-After": String(rateCheck.retryAfterSeconds) } }
+      );
     }
 
     const admin = createAdminClient();

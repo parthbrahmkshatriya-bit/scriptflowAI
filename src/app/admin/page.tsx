@@ -24,7 +24,7 @@ export default async function AdminPage({ searchParams }: PageProps) {
   // --- Fetch users ---
   const { data: users } = await admin
     .from("users")
-    .select("id, email, full_name, plan, scripts_used_this_month, video_credits, subscription_status, created_at, updated_at")
+    .select("id, email, full_name, plan, scripts_used_this_month, video_credits, subscription_status, is_banned, ban_reason, created_at, updated_at")
     .order("created_at", { ascending: false });
 
   // --- Fetch total scripts per user ---
@@ -208,9 +208,16 @@ export default async function AdminPage({ searchParams }: PageProps) {
                   <tr key={u.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
                     <td className="px-4 py-3">
                       <Link href={`/admin/users/${u.id}`} className="group">
-                        <p className="text-sm font-medium group-hover:text-violet-300 transition-colors">
-                          {u.full_name ?? <span className="text-zinc-500 italic">No name</span>}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium group-hover:text-violet-300 transition-colors">
+                            {u.full_name ?? <span className="text-zinc-500 italic">No name</span>}
+                          </p>
+                          {u.is_banned && (
+                            <span className="text-[9px] bg-red-900/40 text-red-400 px-1.5 py-0.5 rounded-full font-medium shrink-0">
+                              banned
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-zinc-500">{u.email}</p>
                       </Link>
                     </td>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PLAN_LABELS, PLATFORM_LABELS, VIDEO_LIMITS } from "@/lib/constants";
 import { ArrowLeft } from "lucide-react";
+import BanButton from "@/components/admin/BanButton";
 
 export const dynamic = "force-dynamic";
 
@@ -69,12 +70,26 @@ export default async function AdminUserPage({ params }: Props) {
       <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-6 space-y-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-xl font-bold">{(u.full_name as string) ?? "No name"}</h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-xl font-bold">{(u.full_name as string) ?? "No name"}</h1>
+              {!!u.is_banned && (
+                <span className="text-xs bg-red-900/50 text-red-300 border border-red-700/40 px-2 py-0.5 rounded-full font-medium">
+                  Banned
+                </span>
+              )}
+            </div>
             <p className="text-sm text-zinc-400 mt-0.5">{u.email as string}</p>
           </div>
-          <span className={`text-xs px-3 py-1 rounded-full font-semibold ${PLAN_COLORS[plan] ?? PLAN_COLORS.free}`}>
-            {PLAN_LABELS[plan] ?? plan}
-          </span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${PLAN_COLORS[plan] ?? PLAN_COLORS.free}`}>
+              {PLAN_LABELS[plan] ?? plan}
+            </span>
+            <BanButton
+              userId={id}
+              isBanned={!!u.is_banned}
+              banReason={(u.ban_reason as string) ?? null}
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2 border-t border-white/[0.06]">

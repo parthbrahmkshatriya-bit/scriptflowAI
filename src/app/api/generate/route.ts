@@ -6,37 +6,11 @@ import { generateSchema, scriptOutputSchema } from "@/lib/schemas/generate";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { PLAN_LIMITS, CLAUDE_MODEL } from "@/lib/constants";
 import { validateEmailDomain } from "@/lib/email-validation";
+import { checkUserSecurity } from "@/lib/security/check-user";
 import type { Plan } from "@/types/database";
 
-// In-memory rate limiters (per-process, resets on cold start)
-const minuteRateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const hourlyRateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(userId: string): { allowed: boolean; window?: string } {
-  const now = Date.now();
-
-  // Per-minute: max 5 requests
-  const minuteEntry = minuteRateLimitMap.get(userId);
-  if (!minuteEntry || now > minuteEntry.resetAt) {
-    minuteRateLimitMap.set(userId, { count: 1, resetAt: now + 60_000 });
-  } else if (minuteEntry.count >= 5) {
-    return { allowed: false, window: "minute" };
-  } else {
-    minuteEntry.count++;
-  }
-
-  // Per-hour: max 10 requests
-  const hourEntry = hourlyRateLimitMap.get(userId);
-  if (!hourEntry || now > hourEntry.resetAt) {
-    hourlyRateLimitMap.set(userId, { count: 1, resetAt: now + 3_600_000 });
-  } else if (hourEntry.count >= 10) {
-    return { allowed: false, window: "hour" };
-  } else {
-    hourEntry.count++;
-  }
-
-  return { allowed: true };
-}
+// Minimum gap between script generation requests per user (DB-backed cooldown)
+const SCRIPT_COOLDOWN_MS = 15_000; // 15 seconds
 
 export async function POST(request: Request) {
   try {
@@ -58,14 +32,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // Rate limit: 5/min, 10/hour
-    const rateCheck = checkRateLimit(user.id);
-    if (!rateCheck.allowed) {
-      const msg =
-        rateCheck.window === "hour"
-          ? "Too many requests. You can generate up to 10 scripts per hour."
-          : "Too many requests. Please wait a minute.";
-      return NextResponse.json({ error: msg }, { status: 429 });
+    // Security: ban check
+    const secCheck = await checkUserSecurity(user.id);
+    if (secCheck.banned) {
+      return NextResponse.json({ error: secCheck.reason }, { status: 403 });
     }
 
     // Parse + validate input
@@ -105,13 +75,25 @@ export async function POST(request: Request) {
     // Re-fetch profile after potential creation
     const { data: userProfile } = await admin
       .from("users")
-      .select("plan, scripts_used_this_month")
+      .select("plan, scripts_used_this_month, last_script_at")
       .eq("id", user.id)
       .single();
 
     const plan = (userProfile?.plan ?? "free") as Plan;
     const used = userProfile?.scripts_used_this_month ?? 0;
     const limit = PLAN_LIMITS[plan];
+
+    // Cooldown: prevent burst requests (DB-backed, works on Vercel serverless)
+    if (userProfile?.last_script_at) {
+      const msSinceLast = Date.now() - new Date(userProfile.last_script_at).getTime();
+      if (msSinceLast < SCRIPT_COOLDOWN_MS) {
+        const waitSec = Math.ceil((SCRIPT_COOLDOWN_MS - msSinceLast) / 1000);
+        return NextResponse.json(
+          { error: `Please wait ${waitSec}s before generating another script.` },
+          { status: 429, headers: { "Retry-After": String(waitSec) } }
+        );
+      }
+    }
 
     if (used >= limit) {
       const upgradeMsg =
@@ -250,10 +232,13 @@ export async function POST(request: Request) {
       // Don't fail the whole request — script was saved
     }
 
-    // Increment usage counter
+    // Atomic increment — also stamps last_script_at for cooldown enforcement
     await admin
       .from("users")
-      .update({ scripts_used_this_month: used + 1 })
+      .update({
+        scripts_used_this_month: used + 1,
+        last_script_at: new Date().toISOString(),
+      })
       .eq("id", user.id);
 
     return NextResponse.json({
