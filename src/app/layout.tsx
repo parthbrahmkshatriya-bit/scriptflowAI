@@ -16,7 +16,7 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500", "700"],
 });
 
-const BASE_URL = "https://scriptflow-ai-omega.vercel.app";
+const BASE_URL = "https://scriptflowai.co";
 
 export const viewport: Viewport = {
   themeColor: "#7c3aed",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     template: "%s | ScriptFlow AI",
   },
   description:
-    "From idea to finished video — script, voiceover, and AI-generated scenes. Powered by Kling, VEO 3, and Runway. Built for Indian creators.",
+    "Turn any video idea into a production-ready script in seconds. AI writes scenes, generates real video clips with narration via VEO 3, and stitches them into one final MP4. No camera, no editing software.",
   keywords: [
     "AI video script generator",
     "video script AI",
@@ -67,7 +67,7 @@ export const metadata: Metadata = {
     siteName: "ScriptFlow AI",
     title: "ScriptFlow AI — The Complete AI Video Studio for Viral Creators",
     description:
-      "From idea to finished video — script, voiceover, and AI-generated scenes. Powered by Kling, VEO 3, and Runway. Built for Indian creators.",
+      "Turn any video idea into a production-ready script in seconds. AI writes scenes, generates real video clips with narration via VEO 3, and stitches them into one final MP4. No camera, no editing software.",
     images: [
       {
         url: "/opengraph-image",
@@ -81,7 +81,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "ScriptFlow AI — The Complete AI Video Studio for Viral Creators",
     description:
-      "From idea to finished video — script, voiceover, and AI-generated scenes. Powered by Kling, VEO 3, and Runway. Built for Indian creators.",
+      "Turn any video idea into a production-ready script in seconds. AI writes scenes, generates real video clips with narration via VEO 3, and stitches them into one final MP4. No camera, no editing software.",
     images: ["/opengraph-image"],
   },
   alternates: {

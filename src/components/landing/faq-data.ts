@@ -12,7 +12,7 @@ export const faqs = [
   {
     question: "How many scripts can I generate for free?",
     answer:
-      "The Free plan includes 3 script generations per month with no credit card required. Usage resets on the 1st of every month. During our launch offer: the Creator plan gives you 30 scripts/month starting at ₹599/mo (regular ₹999), and the Pro plan gives you unlimited scripts starting at ₹1,199/mo (regular ₹1,999).",
+      "The Free plan includes 3 script generations per month with no credit card required. Usage resets on the 1st of every month. The Creator plan gives you 30 scripts/month at ₹799/mo, and the Pro plan gives you unlimited scripts at ₹1,499/mo.",
   },
   {
     question: "How long does script generation take?",

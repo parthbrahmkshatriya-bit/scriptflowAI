@@ -266,6 +266,25 @@ export default function GeneratePage() {
             className="resize-none"
             required
           />
+          {/* Idea chips */}
+          <div className="flex flex-wrap gap-2 pt-1">
+            {[
+              "3 morning habits that changed my life",
+              "Why most people never get rich — explained in 30 seconds",
+              "A drone flyover of Tokyo at night, cinematic",
+              "Product reveal for a sleek wireless earbud",
+              "Stoic quote that hits different every time you hear it",
+            ].map((idea) => (
+              <button
+                key={idea}
+                type="button"
+                onClick={() => setConcept(idea)}
+                className="text-xs px-3 py-1.5 rounded-full border border-white/[0.10] bg-white/[0.04] text-zinc-400 hover:text-white hover:border-violet-500/40 hover:bg-violet-500/10 transition-all duration-150"
+              >
+                {idea}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Reference Image (optional) */}

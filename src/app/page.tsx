@@ -11,7 +11,7 @@ import { AnimateOnScroll } from "@/components/landing/AnimateOnScroll"
 import { WorkflowPipeline } from "@/components/landing/WorkflowPipeline"
 import { LiveDemoSection } from "@/components/landing/LiveDemoSection"
 
-const BASE_URL = "https://scriptflow-ai-omega.vercel.app"
+const BASE_URL = "https://scriptflowai.co"
 
 export const metadata: Metadata = {
   title: { absolute: "ScriptFlow AI — Write, Generate & Export AI Videos End-to-End" },
@@ -30,7 +30,7 @@ const TOOLS = [
   { name: "Runway Gen-4", emoji: "🚀", color: "#3b82f6" },
   { name: "Pika 2.0", emoji: "✨", color: "#ec4899" },
   { name: "Midjourney", emoji: "🎨", color: "#22d3ee" },
-  { name: "Generic", emoji: "🔧", color: "#a1a1aa" },
+  { name: "Universal", emoji: "🔧", color: "#a1a1aa" },
 ]
 
 export default function HomePage() {

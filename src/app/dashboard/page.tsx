@@ -247,7 +247,7 @@ export default async function DashboardPage() {
             <div>
               <p className="font-semibold text-sm">Monthly script limit reached</p>
               <p className="text-xs text-muted-foreground">
-                Upgrade to Creator for 30 scripts/month — ₹999/mo
+                Upgrade to Creator for 30 scripts/month — ₹799/mo
               </p>
             </div>
             <Link
@@ -274,7 +274,7 @@ export default async function DashboardPage() {
               </p>
             </div>
             <Link href="/dashboard/upgrade" className={cn(buttonVariants({ size: "sm" }))}>
-              Upgrade — ₹999/mo
+              Upgrade — ₹799/mo
             </Link>
           </CardContent>
         </Card>
