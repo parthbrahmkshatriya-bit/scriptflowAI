@@ -11,6 +11,7 @@ import {
 import type { Platform, VisualStyle, AiTool, Plan } from "@/types/database";
 import ScriptActions from "@/components/scripts/ScriptActions";
 import ScriptEditor from "@/components/scripts/ScriptEditor";
+import ScriptFeedback from "@/components/scripts/ScriptFeedback";
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +31,16 @@ export default async function ScriptPage({ params }: Props) {
   const admin = createAdminClient();
   const { data: userProfile } = await admin
     .from("users")
-    .select("plan")
+    .select("plan, videos_used_this_month, video_credits")
     .eq("id", user.id)
     .single();
   const plan = (userProfile?.plan ?? "free") as Plan;
-  // Monthly quota enforcement happens in the API; here we just gate by plan
-  const canGenerateVideo = (VIDEO_LIMITS[plan] ?? 0) > 0;
+  const videosUsed = (userProfile as Record<string, unknown>)?.videos_used_this_month as number ?? 0;
+  const videoCredits = (userProfile as Record<string, unknown>)?.video_credits as number ?? 0;
+  const videoLimit = VIDEO_LIMITS[plan] ?? 0;
+  const canGenerateVideo = videoLimit > 0 || videoCredits > 0;
+  const monthlyRemaining = Math.max(0, videoLimit - videosUsed);
+  const totalRemaining = monthlyRemaining + videoCredits;
 
   const { data: script } = await supabase
     .from("scripts")
@@ -53,11 +58,12 @@ export default async function ScriptPage({ params }: Props) {
     .order("scene_number", { ascending: true });
 
   function formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
+    const d = new Date(dateStr);
+    return (
+      d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) +
+      " at " +
+      d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+    );
   }
 
   return (
@@ -103,7 +109,15 @@ export default async function ScriptPage({ params }: Props) {
         scriptTitle={script.title}
         initialScenes={scenes ?? []}
         canGenerateVideo={canGenerateVideo}
+        totalVideoCredits={totalRemaining}
+        monthlyVideoRemaining={monthlyRemaining}
+        purchasedCredits={videoCredits}
       />
+
+      {/* Script-level feedback — shown below all scenes */}
+      <div className="pt-2 pb-4 border-t border-white/[0.06]">
+        <ScriptFeedback scriptId={id} type="script" />
+      </div>
     </div>
   );
 }

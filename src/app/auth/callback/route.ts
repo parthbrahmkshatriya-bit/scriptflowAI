@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { sendWelcomeEmail } from "@/lib/email/send-welcome-email";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -38,6 +39,15 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (type === "email_confirm") {
+      // Fire owner notification — get user details before signing out
+      const { data: { user: newUser } } = await supabase.auth.getUser();
+      if (newUser?.email) {
+        sendWelcomeEmail({
+          userEmail: newUser.email,
+          userName: newUser.user_metadata?.full_name ?? null,
+        }).catch(() => {}); // fire-and-forget, never block the redirect
+      }
+
       await supabase.auth.signOut();
       // Clear session cookies on the response before redirecting to login
       response.cookies.getAll().forEach((c) => {

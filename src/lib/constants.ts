@@ -175,19 +175,19 @@ export const DURATION_OPTIONS: Array<{
     value: '15s',
     label: '15 seconds',
     description: 'Quick hook or teaser',
-    estimatedScenes: '3-4 scenes',
+    estimatedScenes: '1–4 scenes',
   },
   {
     value: '30s',
     label: '30 seconds',
     description: 'Standard short-form length',
-    estimatedScenes: '5-7 scenes',
+    estimatedScenes: '1–7 scenes',
   },
   {
     value: '60s',
     label: '60 seconds',
     description: 'Extended storytelling',
-    estimatedScenes: '10-12 scenes',
+    estimatedScenes: '1–12 scenes',
   },
 ];
 

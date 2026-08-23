@@ -25,12 +25,11 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // getSession() reads the JWT from the cookie without a remote call — fast.
-  // API routes do their own auth with getUser(); no need to double-check here.
+  // getUser() validates the token with Supabase Auth server — required so a
+  // freshly-set OAuth session (PKCE) is visible on the very next request.
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
 
@@ -64,7 +63,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Skip static files, images, and API routes (they handle their own auth)
-    "/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Skip static files, images, API routes, and auth callback
+    // Auth callback must be excluded so middleware never touches the PKCE
+    // code_verifier cookie before exchangeCodeForSession() consumes it.
+    "/((?!_next/static|_next/image|favicon.ico|api|auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

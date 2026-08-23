@@ -5,8 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { VIDEO_LIMITS } from "@/lib/constants";
 import type { Plan } from "@/types/database";
 
-// Veo 3 — generates video WITH audio (narration, SFX) in one prompt
-const FAL_MODEL = "fal-ai/veo3";
+const FAL_MODEL_PRO = "fal-ai/veo3";
+const FAL_MODEL_FAST = "fal-ai/ovi";
 
 export async function POST(request: Request) {
   try {
@@ -57,36 +57,111 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const { prompt, aspect_ratio = "9:16", voiceover_text } = body as {
-      prompt: string;
-      aspect_ratio?: string;
+    const body = await request.json() as {
+      ai_generation_prompt?: string | null;
+      visual_description?: string;
+      camera_direction?: string;
       voiceover_text?: string | null;
+      onscreen_text?: string | null;
+      suggested_music?: string | null;
+      duration_seconds?: number;
+      aspect_ratio?: string;
+      model?: "fast" | "pro";
     };
 
-    if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
-      return NextResponse.json({ error: "prompt is required" }, { status: 422 });
+    const {
+      ai_generation_prompt,
+      visual_description,
+      camera_direction,
+      voiceover_text,
+      onscreen_text,
+      suggested_music,
+      duration_seconds = 5,
+      aspect_ratio = "9:16",
+      model = "pro",
+    } = body;
+
+    if (!visual_description?.trim() && !ai_generation_prompt?.trim()) {
+      return NextResponse.json({ error: "visual_description is required" }, { status: 422 });
     }
 
-    // Build a single Veo 3 prompt that includes both the visual scene and voiceover narration.
-    // Veo 3 generates audio natively — narration, ambient sound, SFX — all from one prompt.
-    const voiceoverLine = voiceover_text?.trim()
-      ? `\n\nNarrator voiceover (spoken clearly): "${voiceover_text.trim()}"`
-      : "";
-
-    const finalPrompt = (prompt.trim() + voiceoverLine).slice(0, 2000);
-
+    const isFast = model === "fast";
+    const FAL_MODEL = isFast ? FAL_MODEL_FAST : FAL_MODEL_PRO;
     const veoAspect: "9:16" | "16:9" = aspect_ratio === "16:9" ? "16:9" : "9:16";
+    // OVI only supports 5s or 10s — snap to the nearest valid value
+    const oviDuration: 5 | 10 = duration_seconds <= 7 ? 5 : 10;
+
+    let finalPrompt: string;
+
+    if (!isFast && ai_generation_prompt?.trim()) {
+      // VEO 3 (Pro): use Claude's rich, pre-crafted VEO 3 prompt directly — it already contains
+      // the visual scene, camera work, voiceover embedded, and quality directives.
+      // Appending a quality suffix ensures the model renders at its highest fidelity.
+      finalPrompt = (
+        ai_generation_prompt.trim() +
+        "\n\nQuality: Photorealistic, cinematic color grading, ultra-sharp, professional production quality, smooth motion, no compression artifacts."
+      ).slice(0, 3000);
+    } else {
+      // OVI (Fast) or fallback: build a clean visual prompt from parts.
+      // OVI doesn't support embedded audio/voiceover — keep it visual-only.
+      const parts: string[] = [];
+      const visual = [visual_description?.trim(), camera_direction?.trim()].filter(Boolean).join(". ");
+      parts.push(`${visual}. Vertical 9:16 format, sharp and cinematic.`);
+
+      if (!isFast) {
+        // Fallback Pro path (no ai_generation_prompt): reconstruct with quality detail
+        const hasVoiceover = !!voiceover_text?.trim();
+        if (hasVoiceover) {
+          parts.push(
+            `Voiceover narration: A professional narrator with a clear, neutral American English accent. ` +
+            `Warm, confident, and engaging delivery. Natural conversational pacing with slight emphasis on key words. ` +
+            `Studio-quality audio — crisp, clean voice with no distortion, no robotic artifacts, no background noise during speech. ` +
+            `The narrator speaks these exact words verbatim: "${voiceover_text!.trim()}"`
+          );
+        }
+        if (onscreen_text?.trim()) {
+          parts.push(`On-screen text overlay reads: "${onscreen_text.trim()}"`);
+        }
+        if (suggested_music?.trim()) {
+          parts.push(
+            hasVoiceover
+              ? `Background music: ${suggested_music.trim()}. Keep subtle and low in the mix so the voiceover sits prominently above it.`
+              : `Background audio: ${suggested_music.trim()}.`
+          );
+        }
+        parts.push("Photorealistic, cinematic color grading, ultra-sharp, professional production quality, smooth motion.");
+      }
+
+      finalPrompt = parts.join("\n\n").slice(0, 3000);
+    }
 
     fal.config({ credentials: apiKey });
 
-    // Submit to queue — Veo 3 Fast typically takes 2–4 minutes
-    const { request_id } = await fal.queue.submit(FAL_MODEL, {
-      input: {
-        prompt: finalPrompt,
-        aspect_ratio: veoAspect,
-      },
-    });
+    let request_id: string;
+    try {
+      const input = isFast
+        ? { prompt: finalPrompt, aspect_ratio: veoAspect, duration: oviDuration }
+        : { prompt: finalPrompt, aspect_ratio: veoAspect };
+
+      const result = await fal.queue.submit(FAL_MODEL, { input });
+      request_id = result.request_id;
+    } catch (falErr) {
+      const falMsg = falErr instanceof Error ? falErr.message : String(falErr);
+      console.error("[generate-video] Fal.AI submission failed:", falMsg);
+      const lower = falMsg.toLowerCase();
+      const isAuthErr = lower.includes("unauthorized") || falMsg.includes("401");
+      const isForbidden = lower.includes("forbidden") || falMsg.includes("403");
+      return NextResponse.json(
+        {
+          error: isAuthErr
+            ? "FAL_KEY is invalid or expired — update FAL_KEY in .env.local and restart the server"
+            : isForbidden
+            ? "Your fal.ai account does not have access to this model. Check your fal.ai dashboard and ensure your API key has the correct permissions."
+            : `Fal.AI error: ${falMsg}`,
+        },
+        { status: 500 }
+      );
+    }
 
     // Use monthly quota first; fall back to purchased credits
     if (hasMonthlyQuota) {
@@ -95,12 +170,17 @@ export async function POST(request: Request) {
       await admin.from("users").update({ video_credits: videoCredits - 1 }).eq("id", user.id);
     }
 
+    const creditsRemaining = hasMonthlyQuota ? videoCredits : videoCredits - 1;
+    const monthlyRemaining = hasMonthlyQuota ? limit - used - 1 : 0;
+
     return NextResponse.json({
       request_id,
       model: FAL_MODEL,
       used: hasMonthlyQuota ? used + 1 : used,
       limit,
-      credits_remaining: hasMonthlyQuota ? videoCredits : videoCredits - 1,
+      credits_remaining: creditsRemaining,
+      monthly_remaining: monthlyRemaining,
+      total_remaining: monthlyRemaining + creditsRemaining,
       used_credit: !hasMonthlyQuota,
     });
   } catch (err) {

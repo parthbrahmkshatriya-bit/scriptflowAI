@@ -19,11 +19,12 @@ import type { Plan, Platform, VisualStyle, AiTool } from "@/types/database";
 export const dynamic = "force-dynamic";
 
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const d = new Date(dateStr);
+  return (
+    d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) +
+    " · " +
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+  );
 }
 
 export default async function DashboardPage() {

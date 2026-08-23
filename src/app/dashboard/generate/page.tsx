@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Sparkles, ImageIcon, X } from "lucide-react";
+import LoadingDoodle from "@/components/ui/LoadingDoodle";
 import {
   DURATION_OPTIONS,
   PLATFORM_OPTIONS,
@@ -51,7 +52,7 @@ export default function GeneratePage() {
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
-  const [imagePurpose, setImagePurpose] = useState<"visual_reference" | "product_ad">("visual_reference");
+  const [imagePurpose, setImagePurpose] = useState<"visual_reference" | "product_ad" | "character_avatar">("visual_reference");
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -148,6 +149,7 @@ export default function GeneratePage() {
       return;
     }
     setLoading(true);
+    window.dispatchEvent(new CustomEvent("__nav_start"));
     savePrefs();
     try {
       const res = await fetch("/api/generate", {
@@ -192,7 +194,17 @@ export default function GeneratePage() {
   const isAtLimit = usage ? usage.limit !== Infinity && usage.used >= usage.limit : false;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="max-w-2xl mx-auto space-y-8" style={loading ? { cursor: "wait" } : undefined}>
+      {/* Full-page overlay while AI is generating the script */}
+      {loading && (
+        <div className="fixed inset-0 z-[200] bg-[#050508]/85 backdrop-blur-sm flex items-center justify-center">
+          <LoadingDoodle
+            title="Generating your script…"
+            subtitle="Claude is writing your scenes — usually 5–10 seconds"
+            size="lg"
+          />
+        </div>
+      )}
 
       {/* Header */}
       <div>
@@ -295,12 +307,13 @@ export default function GeneratePage() {
                 </p>
                 <RadioGroup
                   value={imagePurpose}
-                  onValueChange={(v) => setImagePurpose(v as "visual_reference" | "product_ad")}
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-2"
+                  onValueChange={(v) => setImagePurpose(v as "visual_reference" | "product_ad" | "character_avatar")}
+                  className="grid grid-cols-1 sm:grid-cols-3 gap-2"
                 >
                   {[
                     { value: "visual_reference", label: "Visual Reference", desc: "Match the look, mood & style" },
                     { value: "product_ad", label: "Product / Ad", desc: "Build an ad script around this product" },
+                    { value: "character_avatar", label: "Avatar / Character", desc: "Use this person as the main character in every scene" },
                   ].map((opt) => (
                     <div key={opt.value}>
                       <RadioGroupItem value={opt.value} id={`img-${opt.value}`} className="sr-only" />
@@ -395,7 +408,7 @@ export default function GeneratePage() {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            {[null, 3, 4, 5, 6, 7, 8, 10, 12].map((n) => {
+            {[null, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12].map((n) => {
               const durationSecs = duration === "15s" ? 15 : duration === "30s" ? 30 : 60;
               const secsEach = n ? Math.round(durationSecs / n) : null;
               const isSelected = sceneCount === n;
@@ -422,7 +435,7 @@ export default function GeneratePage() {
           </div>
           <p className="text-xs text-muted-foreground">
             {sceneCount
-              ? `${sceneCount} scenes × ~${Math.round((duration === "15s" ? 15 : duration === "30s" ? 30 : 60) / sceneCount)}s each`
+              ? `${sceneCount} ${sceneCount === 1 ? "scene" : "scenes"} × ~${Math.round((duration === "15s" ? 15 : duration === "30s" ? 30 : 60) / sceneCount)}s each`
               : "Auto picks the optimal scene count for your duration"}
           </p>
         </div>

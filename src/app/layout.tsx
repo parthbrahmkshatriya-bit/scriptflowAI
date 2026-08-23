@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import NextTopLoader from "nextjs-toploader";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -18,7 +19,7 @@ const jetbrainsMono = JetBrains_Mono({
 const BASE_URL = "https://scriptflow-ai-omega.vercel.app";
 
 export const viewport: Viewport = {
-  themeColor: "#00e5c0",
+  themeColor: "#7c3aed",
 };
 
 export const metadata: Metadata = {
@@ -102,6 +103,7 @@ export default function RootLayout({
       <body
         className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans antialiased min-h-screen bg-background text-foreground`}
       >
+        <NextTopLoader color="#7c3aed" height={3} showSpinner={false} shadow="0 0 10px #7c3aed,0 0 5px #7c3aed" />
         {children}
         <Toaster richColors position="top-right" />
       </body>

@@ -30,7 +30,7 @@ export const generateSchema = z.object({
   ai_tool: z.enum(["veo3", "kling", "runway", "pika", "midjourney", "generic"]),
   scene_count: z.number().int().min(1).max(12).optional().nullable(),
   image_base64: z.string().max(7_500_000).optional().nullable(),
-  image_purpose: z.enum(["visual_reference", "product_ad"]).optional().nullable(),
+  image_purpose: z.enum(["visual_reference", "product_ad", "character_avatar"]).optional().nullable(),
 });
 
 export type GenerateInput = z.infer<typeof generateSchema>;

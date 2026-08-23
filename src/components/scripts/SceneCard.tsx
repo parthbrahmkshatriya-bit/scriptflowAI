@@ -7,10 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import type { Scene } from "@/types/database";
+import ScriptFeedback from "@/components/scripts/ScriptFeedback";
 
 interface Props {
   scene: Scene;
   canGenerateVideo?: boolean;
+  totalVideoCredits?: number;
+  monthlyVideoRemaining?: number;
+  purchasedCredits?: number;
   onChange?: (updated: Scene) => void;
 }
 
@@ -81,12 +85,15 @@ function EditableText({
 }
 
 type VideoStatus = "idle" | "submitting" | "queued" | "processing" | "done" | "failed";
+type VideoModel = "fast" | "pro";
 
-export default function SceneCard({ scene, canGenerateVideo = false, onChange }: Props) {
+export default function SceneCard({ scene, canGenerateVideo = false, totalVideoCredits = 0, monthlyVideoRemaining = 0, purchasedCredits = 0, onChange }: Props) {
   const [local, setLocal] = useState<Scene>(scene);
   const [copied, setCopied] = useState(false);
   const [videoStatus, setVideoStatus] = useState<VideoStatus>(scene.video_url ? "done" : "idle");
   const [videoUrl, setVideoUrl] = useState<string | null>(scene.video_url ?? null);
+  const [selectedModel, setSelectedModel] = useState<VideoModel>("pro");
+  const [currentCredits, setCurrentCredits] = useState<number>(totalVideoCredits);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const updateField = useCallback(
@@ -129,22 +136,39 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: local.ai_generation_prompt,
-          aspect_ratio: "9:16",
+          ai_generation_prompt: local.ai_generation_prompt,
+          visual_description: local.visual_description,
+          camera_direction: local.camera_direction,
           voiceover_text: local.voiceover_text ?? null,
+          onscreen_text: local.onscreen_text ?? null,
+          suggested_music: local.suggested_music ?? null,
+          duration_seconds: local.duration_seconds,
+          aspect_ratio: "9:16",
+          model: selectedModel,
         }),
       });
 
-      const data = await res.json() as { request_id?: string; error?: string };
+      const data = await res.json() as {
+        request_id?: string;
+        error?: string;
+        total_remaining?: number;
+      };
       if (!res.ok) {
         toast.error(data.error ?? "Failed to start generation");
         setVideoStatus("failed");
         return;
       }
 
+      // Update local credit count from server response
+      if (typeof data.total_remaining === "number") {
+        setCurrentCredits(data.total_remaining);
+      }
+
       const requestId = data.request_id!;
       setVideoStatus("queued");
-      toast.info("Generating video + audio with Veo 3 — this takes 2–4 minutes…");
+      const modelLabel = selectedModel === "fast" ? "Ovi (Fast)" : "Veo 3 (Pro)";
+      const eta = selectedModel === "fast" ? "~30–60 seconds" : "2–4 minutes";
+      toast.info(`Generating with ${modelLabel} — takes ${eta}…`);
 
       const timeoutId = setTimeout(() => {
         clearInterval(pollRef.current!);
@@ -157,7 +181,7 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
       pollRef.current = setInterval(async () => {
         try {
           const statusRes = await fetch(
-            `/api/generate-video/status?request_id=${requestId}&scene_id=${local.id}`
+            `/api/generate-video/status?request_id=${requestId}&scene_id=${local.id}&model=${selectedModel}`
           );
           const statusData = await statusRes.json() as { status: string; video_url?: string };
           consecutiveErrors = 0;
@@ -171,6 +195,10 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
               setVideoUrl(statusData.video_url);
               setVideoStatus("done");
               toast.success("Video + audio ready! Press play.");
+              // Propagate video_url up so StitchButton knows this scene is ready
+              const withVideo = { ...local, video_url: statusData.video_url };
+              setLocal(withVideo);
+              onChange?.(withVideo);
             } else {
               setVideoStatus("failed");
               toast.error("Generation completed but no URL returned. Please retry.");
@@ -207,17 +235,19 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
 
   const hasVoiceover = !!local.voiceover_text?.trim();
 
+  const isGenerating = videoStatus === "submitting" || videoStatus === "queued" || videoStatus === "processing";
+
   const videoStatusLabel: Record<VideoStatus, string> = {
-    idle: hasVoiceover ? "🎬 Generate Video + Audio" : "🎬 Generate Video",
+    idle: hasVoiceover ? "Generate Video + Audio" : "Generate Video",
     submitting: "Preparing…",
     queued: "In queue…",
     processing: "Generating…",
-    done: hasVoiceover ? "🔄 Regenerate Video + Audio" : "🔄 Regenerate",
-    failed: "🔄 Retry",
+    done: "Regenerate",
+    failed: "Retry",
   };
 
   return (
-    <Card>
+    <Card style={isGenerating ? { cursor: "wait" } : undefined}>
       <CardHeader className="pb-2 pt-4 px-4">
         <div className="flex items-center gap-2">
           <Badge variant="default" className="text-xs px-2">Scene {local.scene_number}</Badge>
@@ -264,25 +294,9 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
             <p className="text-xs font-semibold text-primary uppercase tracking-wide">
               AI Generation Prompt
             </p>
-            <div className="flex items-center gap-2">
-              {canGenerateVideo && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs gap-1"
-                  onClick={generateVideo}
-                  disabled={videoStatus === "submitting" || videoStatus === "queued" || videoStatus === "processing"}
-                >
-                  {(videoStatus === "submitting" || videoStatus === "queued" || videoStatus === "processing") && (
-                    <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />
-                  )}
-                  {videoStatusLabel[videoStatus]}
-                </Button>
-              )}
-              <Button size="sm" variant={copied ? "default" : "outline"} className="h-7 text-xs" onClick={copyPrompt}>
-                {copied ? "Copied!" : "Copy"}
-              </Button>
-            </div>
+            <Button size="sm" variant={copied ? "default" : "outline"} className="h-7 text-xs" onClick={copyPrompt}>
+              {copied ? "Copied!" : "Copy"}
+            </Button>
           </div>
 
           {/* Prompt + voiceover unified box */}
@@ -299,7 +313,74 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
             )}
           </div>
 
-          {/* Video player — Veo 3 output includes audio natively */}
+          {/* Video generation controls */}
+          {canGenerateVideo ? (
+            <div className="mt-3 space-y-2">
+              {/* Model selector + credit display row */}
+              <div className="flex items-center justify-between gap-2">
+                {/* Fast / Pro toggle */}
+                <div className="flex rounded-md border border-white/10 overflow-hidden text-xs">
+                  <button
+                    onClick={() => setSelectedModel("fast")}
+                    className={`px-3 py-1.5 font-medium transition-colors ${
+                      selectedModel === "fast"
+                        ? "bg-violet-600 text-white"
+                        : "text-muted-foreground hover:bg-white/5"
+                    }`}
+                    disabled={isGenerating}
+                  >
+                    ⚡ Fast
+                  </button>
+                  <button
+                    onClick={() => setSelectedModel("pro")}
+                    className={`px-3 py-1.5 font-medium transition-colors border-l border-white/10 ${
+                      selectedModel === "pro"
+                        ? "bg-violet-600 text-white"
+                        : "text-muted-foreground hover:bg-white/5"
+                    }`}
+                    disabled={isGenerating}
+                  >
+                    ✨ Pro
+                  </button>
+                </div>
+
+                {/* Credit display */}
+                <span className="text-[10px] text-muted-foreground">
+                  {currentCredits > 0 ? (
+                    <>
+                      <span className="text-violet-400 font-semibold">{currentCredits}</span>
+                      {" "}video{currentCredits === 1 ? "" : "s"} left
+                      {purchasedCredits > 0 && monthlyVideoRemaining > 0 && (
+                        <span className="opacity-60"> ({monthlyVideoRemaining} monthly + {purchasedCredits} credits)</span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-amber-400">No credits left</span>
+                  )}
+                </span>
+              </div>
+
+              {/* Generate button */}
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full h-8 text-xs gap-1.5"
+                onClick={generateVideo}
+                disabled={isGenerating || currentCredits <= 0}
+              >
+                {isGenerating && (
+                  <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />
+                )}
+                🎬 {videoStatusLabel[videoStatus]}
+              </Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-2">
+              🎬 <a href="/dashboard/upgrade" className="underline hover:text-foreground">Upgrade your plan</a> to generate videos
+            </p>
+          )}
+
+          {/* Video player */}
           {videoStatus !== "idle" && (
             <div className="mt-3">
               {videoUrl ? (
@@ -310,28 +391,32 @@ export default function SceneCard({ scene, canGenerateVideo = false, onChange }:
                     className="w-full rounded-md max-h-80 bg-black"
                     playsInline
                   />
-                  <p className="text-[10px] text-muted-foreground">
-                    🔊 Audio included — generated by Veo 3
-                  </p>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={downloadVideo}>
-                    ↓ Download MP4
-                  </Button>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] text-muted-foreground">
+                      🔊 Audio included — generated by {selectedModel === "fast" ? "Ovi" : "Veo 3"}
+                    </p>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={downloadVideo}>
+                      ↓ Download MP4
+                    </Button>
+                  </div>
+                  <ScriptFeedback
+                    scriptId={local.script_id}
+                    sceneId={local.id}
+                    type="video"
+                    label="How's the video quality?"
+                  />
                 </div>
               ) : videoStatus === "failed" ? (
                 <p className="text-xs text-destructive">Generation failed — try again.</p>
-              ) : (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />
-                  {videoStatus === "queued" ? "Waiting in Veo 3 queue (2–4 min)…" : "Generating video + audio…"}
+              ) : videoStatus === "done" && !videoUrl ? null : (
+                <div className="mt-3 flex flex-col items-center gap-3 py-5">
+                  <div className="size-12 rounded-full border-4 border-violet-500/15 border-t-violet-500 animate-spin" />
+                  <p className="text-xs text-muted-foreground">
+                    {videoStatus === "queued" ? "In queue…" : "Generating…"}
+                  </p>
                 </div>
               )}
             </div>
-          )}
-
-          {!canGenerateVideo && (
-            <p className="text-xs text-muted-foreground mt-2">
-              🎬 <a href="/dashboard/upgrade" className="underline hover:text-foreground">Upgrade your plan</a> to generate videos
-            </p>
           )}
         </div>
       </CardContent>

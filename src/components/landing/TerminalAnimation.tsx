@@ -62,25 +62,25 @@ export function TerminalAnimation() {
           if (line.type === "blank") return <div key={i} className="h-2" />
           const isLast = i === lines.length - 1
           let cls = "text-zinc-500"
-          if (line.type === "prompt") cls = "text-[#00e5c0] font-semibold"
+          if (line.type === "prompt") cls = "text-violet-400 font-semibold"
           else if (line.type === "info") cls = "text-zinc-400"
-          else if (line.type === "loading") cls = "text-[#00e5c0]/60"
+          else if (line.type === "loading") cls = "text-violet-400/60"
           else if (line.type === "scene") cls = "text-emerald-400"
-          else if (line.type === "done") cls = "text-[#00e5c0]"
+          else if (line.type === "done") cls = "text-violet-400"
 
           return (
             <div key={i} className={`${cls} mb-0.5`}>
               {line.text}
               {isLast && (
-                <span className="inline-block w-1.5 h-[13px] bg-[#00e5c0] ml-0.5 align-middle animate-pulse" />
+                <span className="inline-block w-1.5 h-[13px] bg-violet-400 ml-0.5 align-middle animate-pulse" />
               )}
             </div>
           )
         })}
         {lines.length === 0 && (
-          <div className="text-[#00e5c0] font-semibold">
+          <div className="text-violet-400 font-semibold">
             ${" "}
-            <span className="inline-block w-1.5 h-[13px] bg-[#00e5c0] ml-0.5 align-middle animate-pulse" />
+            <span className="inline-block w-1.5 h-[13px] bg-violet-400 ml-0.5 align-middle animate-pulse" />
           </div>
         )}
       </div>

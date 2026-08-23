@@ -3,9 +3,10 @@ import { fal } from "@fal-ai/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const FAL_MODEL = "fal-ai/veo3";
+const FAL_MODEL_PRO = "fal-ai/veo3";
+const FAL_MODEL_FAST = "fal-ai/ovi";
 
-type KlingResult = Record<string, unknown> & {
+type VideoResult = Record<string, unknown> & {
   video?: { url: string };
   videos?: Array<{ url: string }>;
 }
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const requestId = searchParams.get("request_id");
     const sceneId = searchParams.get("scene_id");
+    const modelParam = searchParams.get("model") as "fast" | "pro" | null;
     if (!requestId) {
       return NextResponse.json({ error: "request_id is required" }, { status: 422 });
     }
@@ -32,13 +34,14 @@ export async function GET(request: Request) {
 
     fal.config({ credentials: apiKey });
 
+    const FAL_MODEL = modelParam === "fast" ? FAL_MODEL_FAST : FAL_MODEL_PRO;
     const queueStatus = await fal.queue.status(FAL_MODEL, { requestId, logs: false });
     const statusStr = (queueStatus as { status: string }).status;
 
     if (statusStr === "COMPLETED") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await fal.queue.result<any>(FAL_MODEL, { requestId });
-      const data = result.data as KlingResult | undefined;
+      const data = result.data as VideoResult | undefined;
       const videoUrl = data?.video?.url ?? data?.videos?.[0]?.url ?? null;
 
       if (videoUrl && sceneId) {

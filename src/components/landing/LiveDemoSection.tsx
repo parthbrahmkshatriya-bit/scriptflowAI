@@ -139,14 +139,14 @@ export function LiveDemoSection() {
             className={cn(
               "flex-1 text-left rounded-xl border p-4 transition-all duration-300",
               i === active
-                ? "border-[#00e5c0]/50 bg-[#00e5c0]/[0.07] shadow-[0_0_20px_-8px_rgba(0,229,192,0.5)]"
+                ? "border-violet-400/50 bg-violet-400/[0.07] shadow-[0_0_20px_-8px_rgba(0,229,192,0.5)]"
                 : "border-white/[0.07] bg-white/[0.02] hover:border-white/[0.12]"
             )}
           >
             <div className="flex items-center gap-2 mb-1.5">
               <span className={cn(
                 "text-[10px] font-bold tracking-wide uppercase",
-                i === active ? "text-[#00e5c0]" : "text-zinc-600"
+                i === active ? "text-violet-400" : "text-zinc-600"
               )}>
                 {d.label}
               </span>
@@ -184,12 +184,12 @@ export function LiveDemoSection() {
                   "relative rounded-xl border transition-all duration-200",
                   isLocked
                     ? "border-white/[0.04] bg-white/[0.01]"
-                    : "border-white/[0.07] bg-white/[0.03] group hover:border-[#00e5c0]/30 hover:bg-[#00e5c0]/[0.03]"
+                    : "border-white/[0.07] bg-white/[0.03] group hover:border-violet-400/30 hover:bg-violet-400/[0.03]"
                 )}
               >
                 {isLocked && (
                   <div className="absolute inset-0 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center z-10 bg-[#060810]/70">
-                    <Lock className="size-4 text-[#00e5c0] mb-2" />
+                    <Lock className="size-4 text-violet-400 mb-2" />
                     <p className="text-sm font-semibold text-white mb-0.5">Sign up to see full script</p>
                     <p className="text-xs text-zinc-500">Free · No credit card required</p>
                   </div>
@@ -197,7 +197,7 @@ export function LiveDemoSection() {
                 <div className={cn("p-4", isLocked && "opacity-10 select-none")}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-[#00e5c0] bg-[#00e5c0]/10 border border-[#00e5c0]/30 rounded px-2 py-0.5">
+                      <span className="text-[10px] font-bold text-violet-400 bg-violet-400/10 border border-violet-400/30 rounded px-2 py-0.5">
                         Scene {scene.num}
                       </span>
                       <span className="text-xs text-zinc-600">{scene.dur}</span>
@@ -205,7 +205,7 @@ export function LiveDemoSection() {
                     {!isLocked && scene.prompt && (
                       <button
                         onClick={() => copy(scene.prompt!, i)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-zinc-500 hover:text-[#00e5c0] flex items-center gap-1"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-zinc-500 hover:text-violet-400 flex items-center gap-1"
                       >
                         <Copy className="size-3" />
                         {copied === i ? "Copied!" : "Copy prompt"}
@@ -217,8 +217,8 @@ export function LiveDemoSection() {
                     <p className="text-xs text-zinc-600 italic mb-2">&ldquo;{scene.voiceover}&rdquo;</p>
                   )}
                   {scene.prompt && (
-                    <div className="rounded-lg bg-[#00e5c0]/[0.06] border border-[#00e5c0]/20 px-3 py-2">
-                      <p className="text-xs font-mono text-[#00e5c0]/80 leading-relaxed">{scene.prompt}</p>
+                    <div className="rounded-lg bg-violet-400/[0.06] border border-violet-400/20 px-3 py-2">
+                      <p className="text-xs font-mono text-violet-400/80 leading-relaxed">{scene.prompt}</p>
                     </div>
                   )}
                 </div>

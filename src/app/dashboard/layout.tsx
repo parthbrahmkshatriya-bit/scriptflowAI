@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,8 @@ import { PLAN_LABELS } from "@/lib/constants";
 import type { Plan } from "@/types/database";
 import DashboardNav from "@/components/layout/DashboardNav";
 import { ActiveNavLinks } from "@/components/layout/ActiveNavLinks";
+import NavigationLoader from "@/components/layout/NavigationLoader";
+import CursorLoader from "@/components/layout/CursorLoader";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -93,6 +96,14 @@ export default async function DashboardLayout({
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6 page-enter">
         {children}
       </main>
+
+      {/* Cursor-following spinner on any link click */}
+      <CursorLoader />
+
+      {/* Full-page overlay for slower navigations */}
+      <Suspense>
+        <NavigationLoader />
+      </Suspense>
     </div>
   );
 }
