@@ -224,7 +224,7 @@ export default function HomePage() {
         <div className="absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent)" }} />
         <div className="max-w-6xl mx-auto">
           <AnimateOnScroll className="text-center mb-14">
-            <p className="text-xs font-bold tracking-[0.2em] uppercase text-pink-400 mb-4">What's inside</p>
+            <p className="text-xs font-bold tracking-[0.2em] uppercase text-pink-400 mb-4">What&apos;s inside</p>
             <h2 className="font-black text-4xl sm:text-5xl tracking-tight leading-[1.05] mb-4">
               Not just a script writer.{" "}
               <br className="hidden sm:block" />

@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Badge } from "@/components/ui/badge";
 import { PLAN_LABELS, PLATFORM_LABELS, VIDEO_LIMITS } from "@/lib/constants";
 import { ArrowLeft } from "lucide-react";
 

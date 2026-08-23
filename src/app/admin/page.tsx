@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Badge } from "@/components/ui/badge";
 import { PLAN_LABELS } from "@/lib/constants";
+import BroadcastButton from "@/components/admin/BroadcastButton";
 
 export const dynamic = "force-dynamic";
 
@@ -87,9 +87,12 @@ export default async function AdminPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">ScriptFlow AI user base &amp; feedback</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">ScriptFlow AI user base &amp; feedback</p>
+        </div>
+        <BroadcastButton />
       </div>
 
       {/* Stats row */}
