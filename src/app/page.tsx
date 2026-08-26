@@ -56,7 +56,7 @@ export default function HomePage() {
               <a key={label} href={["#workflow","#features","#demo","#faq"][i]}
                 className="hover:text-white transition-colors duration-200">{label}</a>
             ))}
-            <Link href="/contact" className="hover:text-white transition-colors duration-200">Contact</Link>
+            <Link href="/contact" className="hover:text-white transition-colors duration-200">Contact us</Link>
           </div>
 
           <div className="flex items-center gap-2.5">
@@ -601,7 +601,7 @@ export default function HomePage() {
               { label: "Login", href: "/login" },
               { label: "Sign Up", href: "/signup" },
               { label: "FAQ", href: "#faq" },
-              { label: "Contact", href: "/contact" },
+              { label: "Contact us", href: "/contact" },
             ].map(({ label, href }) => (
               <Link key={label} href={href} className="hover:text-white transition-colors">{label}</Link>
             ))}
