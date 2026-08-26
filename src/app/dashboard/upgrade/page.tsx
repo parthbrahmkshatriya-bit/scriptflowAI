@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
-import { Check, X, Zap, Crown, Sparkles, Rocket, Clock, Star } from "lucide-react";
+import { Check, X, Zap, Crown, Sparkles, Rocket, Clock, Star, QrCode } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,10 @@ type RazorpayOptions = {
   theme: { color: string };
   handler: (r: RazorpayResponse) => void;
   modal: { ondismiss: () => void };
+  method?: {
+    upi?: boolean; card?: boolean; netbanking?: boolean;
+    wallet?: boolean; emi?: boolean; paylater?: boolean;
+  };
 };
 declare global {
   interface Window { Razorpay: new (o: RazorpayOptions) => { open(): void }; }
@@ -92,6 +96,7 @@ export default function UpgradePage() {
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState<string | null>(null);
   const [processingPlan, setProcessingPlan] = useState<Plan | null>(null);
+  const [processingUPI, setProcessingUPI] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -172,6 +177,72 @@ export default function UpgradePage() {
     }
   }
 
+  async function handleUPIPayment(targetPlan: "creator" | "studio" | "agency") {
+    setProcessingUPI(targetPlan);
+    try {
+      const orderRes = await fetch("/api/payment/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: targetPlan, billingCycle: "monthly" }),
+      });
+      if (!orderRes.ok) {
+        const err = await orderRes.json();
+        toast.error(err.error ?? "Failed to create order");
+        setProcessingUPI(null);
+        return;
+      }
+      const { order_id, amount, currency, key_id } = await orderRes.json();
+      const rzpKey = key_id ?? process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!;
+
+      if (typeof window === "undefined" || !window.Razorpay) {
+        toast.error("Payment system not loaded. Please refresh and try again.");
+        setProcessingUPI(null);
+        return;
+      }
+
+      const def = PLAN_DEFS.find(p => p.plan === targetPlan)!;
+      const pricing = EARLY_BIRD_ACTIVE ? EARLY_BIRD_PRICING : REGULAR_PRICING;
+      const inrPrice = pricing[targetPlan as keyof typeof pricing]?.inr ?? 0;
+
+      const rzp = new window.Razorpay({
+        key: rzpKey,
+        amount,
+        currency,
+        name: "ScriptFlow AI",
+        description: `${def.name} Plan — ₹${inrPrice}/month`,
+        order_id,
+        prefill: { email: userEmail, name: userName ?? undefined },
+        theme: { color: "#8B5CF6" },
+        // Restrict to UPI only — modal opens straight to QR / UPI ID screen
+        method: { upi: true, card: false, netbanking: false, wallet: false, emi: false, paylater: false },
+        handler: async (response: RazorpayResponse) => {
+          try {
+            const verifyRes = await fetch("/api/payment/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ...response, plan: targetPlan }),
+            });
+            if (verifyRes.ok) {
+              toast.success(`You're now on the ${def.name} plan! 🎉`);
+              router.push("/dashboard");
+              router.refresh();
+            } else {
+              const err = await verifyRes.json();
+              toast.error(err.error ?? "Payment verification failed. Contact support.");
+            }
+          } finally {
+            setProcessingUPI(null);
+          }
+        },
+        modal: { ondismiss: () => setProcessingUPI(null) },
+      });
+      rzp.open();
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+      setProcessingUPI(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -190,7 +261,7 @@ export default function UpgradePage() {
         <div>
           <h1 className="text-2xl font-bold">Upgrade Your Plan</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Secure payments via Razorpay · UPI, Cards, Net Banking &amp; Wallets accepted
+            Secure payments via Razorpay · Pay with UPI / QR Code, Cards, Net Banking &amp; Wallets
           </p>
         </div>
 
@@ -315,7 +386,7 @@ export default function UpgradePage() {
 
                 {/* CTA */}
                 <button
-                  disabled={!isUpgrade || processingPlan !== null}
+                  disabled={!isUpgrade || processingPlan !== null || processingUPI !== null}
                   onClick={() => isUpgrade && def.plan !== "free"
                     ? handleUpgrade(def.plan as "creator" | "studio" | "agency")
                     : undefined
@@ -337,6 +408,18 @@ export default function UpgradePage() {
                     : def.plan === "free" ? "Free Plan"
                     : "Lower Plan"}
                 </button>
+
+                {/* UPI / QR Code button */}
+                {isUpgrade && def.plan !== "free" && (
+                  <button
+                    disabled={processingPlan !== null || processingUPI !== null}
+                    onClick={() => handleUPIPayment(def.plan as "creator" | "studio" | "agency")}
+                    className="w-full mt-2 rounded-xl px-4 py-2 text-xs font-medium flex items-center justify-center gap-1.5 border border-dashed border-white/10 text-zinc-400 hover:text-white hover:border-violet-500/40 hover:bg-violet-500/5 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <QrCode className="size-3.5" />
+                    {processingUPI === def.plan ? "Opening UPI…" : "Pay via UPI / QR Code"}
+                  </button>
+                )}
               </div>
             );
           })}
