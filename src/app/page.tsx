@@ -56,6 +56,7 @@ export default function HomePage() {
               <a key={label} href={["#workflow","#features","#demo","#faq"][i]}
                 className="hover:text-white transition-colors duration-200">{label}</a>
             ))}
+            <Link href="/contact" className="hover:text-white transition-colors duration-200">Contact</Link>
           </div>
 
           <div className="flex items-center gap-2.5">
