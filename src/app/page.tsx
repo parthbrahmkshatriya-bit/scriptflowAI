@@ -600,7 +600,7 @@ export default function HomePage() {
               { label: "Login", href: "/login" },
               { label: "Sign Up", href: "/signup" },
               { label: "FAQ", href: "#faq" },
-              { label: "Contact", href: "mailto:parthbrahmkshatriya@gmail.com" },
+              { label: "Contact", href: "/contact" },
             ].map(({ label, href }) => (
               <Link key={label} href={href} className="hover:text-white transition-colors">{label}</Link>
             ))}
