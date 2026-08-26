@@ -25,12 +25,20 @@ export async function checkUserSecurity(userId: string): Promise<SecurityCheck> 
 
 /**
  * Persistent rate limiter for video generation — stored in DB so it survives
- * Vercel serverless cold starts. Window: 10 minutes, max 3 requests.
+ * Vercel serverless cold starts. Window: 10 minutes. Limit is plan-aware so
+ * paid users generating multiple scenes are not blocked unfairly.
  *
  * Returns { allowed: true } or { allowed: false, retryAfterSeconds }
  */
 const VIDEO_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-const VIDEO_WINDOW_MAX = 3;
+
+const VIDEO_WINDOW_MAX: Record<string, number> = {
+  free:    3,
+  creator: 15,
+  studio:  25,
+  pro:     40,
+  agency:  40,
+};
 
 export async function checkVideoRateLimit(
   userId: string
@@ -40,9 +48,11 @@ export async function checkVideoRateLimit(
 
   const { data: profile } = await admin
     .from("users")
-    .select("video_rate_count, video_rate_window_start")
+    .select("plan, video_rate_count, video_rate_window_start")
     .eq("id", userId)
     .single();
+
+  const maxRequests = VIDEO_WINDOW_MAX[(profile?.plan as string) ?? "free"] ?? 3;
 
   const windowStart = profile?.video_rate_window_start
     ? new Date(profile.video_rate_window_start)
@@ -59,7 +69,7 @@ export async function checkVideoRateLimit(
     return { allowed: true };
   }
 
-  if (count >= VIDEO_WINDOW_MAX) {
+  if (count >= maxRequests) {
     const resetAt = windowStart!.getTime() + VIDEO_WINDOW_MS;
     const retryAfterSeconds = Math.ceil((resetAt - now.getTime()) / 1000);
     return { allowed: false, retryAfterSeconds };
