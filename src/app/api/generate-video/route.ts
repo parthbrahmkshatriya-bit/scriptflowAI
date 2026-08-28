@@ -167,13 +167,13 @@ export async function POST(request: Request) {
       const lower = falMsg.toLowerCase();
       const isAuthErr = lower.includes("unauthorized") || falMsg.includes("401");
       const isForbidden = lower.includes("forbidden") || falMsg.includes("403");
+      // Log full detail server-side; never expose internal config hints to the user
+      console.error("[generate-video] fal.ai error detail:", falMsg);
       return NextResponse.json(
         {
-          error: isAuthErr
-            ? "FAL_KEY is invalid or expired — update FAL_KEY in .env.local and restart the server"
-            : isForbidden
-            ? "Your fal.ai account does not have access to this model. Check your fal.ai dashboard and ensure your API key has the correct permissions."
-            : `Fal.AI error: ${falMsg}`,
+          error: isAuthErr || isForbidden
+            ? "Video generation is temporarily unavailable. Please try again later or contact support."
+            : "Video generation failed. Please try again in a moment.",
         },
         { status: 500 }
       );
