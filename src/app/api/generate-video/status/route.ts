@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const FAL_MODEL_PRO = "fal-ai/veo3";
 const FAL_MODEL_FAST = "fal-ai/ovi";
+const FAL_MODEL_IMAGE = "fal-ai/kling-video/v2.1/standard/image-to-video";
 
 type VideoResult = Record<string, unknown> & {
   video?: { url: string };
@@ -22,7 +23,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const requestId = searchParams.get("request_id");
     const sceneId = searchParams.get("scene_id");
-    const modelParam = searchParams.get("model") as "fast" | "pro" | null;
+    const modelParam = searchParams.get("model") as "fast" | "pro" | "image" | null;
+    const modelId = searchParams.get("model_id"); // full fal.ai model path, takes priority
     if (!requestId) {
       return NextResponse.json({ error: "request_id is required" }, { status: 422 });
     }
@@ -34,7 +36,8 @@ export async function GET(request: Request) {
 
     fal.config({ credentials: apiKey });
 
-    const FAL_MODEL = modelParam === "fast" ? FAL_MODEL_FAST : FAL_MODEL_PRO;
+    const FAL_MODEL = modelId
+      ?? (modelParam === "fast" ? FAL_MODEL_FAST : modelParam === "image" ? FAL_MODEL_IMAGE : FAL_MODEL_PRO);
     const queueStatus = await fal.queue.status(FAL_MODEL, { requestId, logs: false });
     const statusStr = (queueStatus as { status: string }).status;
 

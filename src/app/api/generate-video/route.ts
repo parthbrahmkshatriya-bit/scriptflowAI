@@ -8,6 +8,7 @@ import type { Plan } from "@/types/database";
 
 const FAL_MODEL_PRO = "fal-ai/veo3";
 const FAL_MODEL_FAST = "fal-ai/ovi";
+const FAL_MODEL_IMAGE = "fal-ai/kling-video/v2.1/standard/image-to-video";
 
 export async function POST(request: Request) {
   try {
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
       duration_seconds?: number;
       aspect_ratio?: string;
       model?: "fast" | "pro";
+      image_url?: string | null;
     };
 
     const {
@@ -95,37 +97,47 @@ export async function POST(request: Request) {
       duration_seconds = 5,
       aspect_ratio = "9:16",
       model = "pro",
+      image_url,
     } = body;
 
     if (!visual_description?.trim() && !ai_generation_prompt?.trim()) {
       return NextResponse.json({ error: "visual_description is required" }, { status: 422 });
     }
 
-    const isFast = model === "fast";
-    const FAL_MODEL = isFast ? FAL_MODEL_FAST : FAL_MODEL_PRO;
+    const hasImage = !!image_url?.trim();
+    const isFast = !hasImage && model === "fast";
+    const FAL_MODEL = hasImage ? FAL_MODEL_IMAGE : isFast ? FAL_MODEL_FAST : FAL_MODEL_PRO;
     const veoAspect: "9:16" | "16:9" = aspect_ratio === "16:9" ? "16:9" : "9:16";
     // OVI only supports 5s or 10s — snap to the nearest valid value
     const oviDuration: 5 | 10 = duration_seconds <= 7 ? 5 : 10;
+    // Kling image-to-video also uses "5" | "10" string durations
+    const klingDuration: "5" | "10" = duration_seconds <= 7 ? "5" : "10";
 
     let finalPrompt: string;
 
-    if (!isFast && ai_generation_prompt?.trim()) {
+    if (hasImage) {
+      // Image-to-video (Kling): build a concise visual motion prompt.
+      // The image itself provides product identity — prompt guides motion and camera.
+      const parts: string[] = [];
+      const visual = [visual_description?.trim(), camera_direction?.trim()].filter(Boolean).join(". ");
+      if (visual) parts.push(visual);
+      if (onscreen_text?.trim()) parts.push(`Text overlay: "${onscreen_text.trim()}"`);
+      parts.push("Professional product advertisement. Smooth cinematic motion. 9:16 vertical format. Photorealistic quality.");
+      finalPrompt = parts.join(" ").slice(0, 1500);
+    } else if (!isFast && ai_generation_prompt?.trim()) {
       // VEO 3 (Pro): use Claude's rich, pre-crafted VEO 3 prompt directly — it already contains
       // the visual scene, camera work, voiceover embedded, and quality directives.
-      // Appending a quality suffix ensures the model renders at its highest fidelity.
       finalPrompt = (
         ai_generation_prompt.trim() +
         "\n\nQuality: Photorealistic, cinematic color grading, ultra-sharp, professional production quality, smooth motion, no compression artifacts."
       ).slice(0, 3000);
     } else {
       // OVI (Fast) or fallback: build a clean visual prompt from parts.
-      // OVI doesn't support embedded audio/voiceover — keep it visual-only.
       const parts: string[] = [];
       const visual = [visual_description?.trim(), camera_direction?.trim()].filter(Boolean).join(". ");
       parts.push(`${visual}. Vertical 9:16 format, sharp and cinematic.`);
 
       if (!isFast) {
-        // Fallback Pro path (no ai_generation_prompt): reconstruct with quality detail
         const hasVoiceover = !!voiceover_text?.trim();
         if (hasVoiceover) {
           parts.push(
@@ -155,9 +167,19 @@ export async function POST(request: Request) {
 
     let request_id: string;
     try {
-      const input = isFast
-        ? { prompt: finalPrompt, aspect_ratio: veoAspect, duration: oviDuration }
-        : { prompt: finalPrompt, aspect_ratio: veoAspect };
+      let input: Record<string, unknown>;
+      if (hasImage) {
+        input = {
+          image_url: image_url!.trim(),
+          prompt: finalPrompt,
+          duration: klingDuration,
+          aspect_ratio: veoAspect,
+        };
+      } else if (isFast) {
+        input = { prompt: finalPrompt, aspect_ratio: veoAspect, duration: oviDuration };
+      } else {
+        input = { prompt: finalPrompt, aspect_ratio: veoAspect };
+      }
 
       const result = await fal.queue.submit(FAL_MODEL, { input });
       request_id = result.request_id;
@@ -192,6 +214,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       request_id,
       model: FAL_MODEL,
+      model_type: hasImage ? "image" : isFast ? "fast" : "pro",
       used: hasMonthlyQuota ? used + 1 : used,
       limit,
       credits_remaining: creditsRemaining,

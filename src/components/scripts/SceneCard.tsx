@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { ImageIcon, X } from "lucide-react";
 import type { Scene } from "@/types/database";
 import ScriptFeedback from "@/components/scripts/ScriptFeedback";
 
@@ -94,6 +95,10 @@ export default function SceneCard({ scene, canGenerateVideo = false, totalVideoC
   const [videoUrl, setVideoUrl] = useState<string | null>(scene.video_url ?? null);
   const [selectedModel, setSelectedModel] = useState<VideoModel>("pro");
   const [currentCredits, setCurrentCredits] = useState<number>(totalVideoCredits);
+  const [referenceImageUrl, setReferenceImageUrl] = useState<string | null>(null);
+  const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const updateField = useCallback(
@@ -127,6 +132,50 @@ export default function SceneCard({ scene, canGenerateVideo = false, totalVideoC
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function handleReferenceImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Only JPEG, PNG, and WebP images are supported");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image must be 10 MB or smaller");
+      return;
+    }
+
+    // Show local preview immediately
+    const reader = new FileReader();
+    reader.onload = (ev) => setReferenceImagePreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+
+    setIsUploadingImage(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload-reference-image", { method: "POST", body: form });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        toast.error(data.error ?? "Image upload failed");
+        setReferenceImagePreview(null);
+        return;
+      }
+      setReferenceImageUrl(data.url);
+      toast.success("Reference image uploaded — video will use it as the product base");
+    } catch {
+      toast.error("Failed to upload image");
+      setReferenceImagePreview(null);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }
+
+  function removeReferenceImage() {
+    setReferenceImageUrl(null);
+    setReferenceImagePreview(null);
+  }
+
   async function generateVideo() {
     setVideoStatus("submitting");
     setVideoUrl(null);
@@ -145,11 +194,14 @@ export default function SceneCard({ scene, canGenerateVideo = false, totalVideoC
           duration_seconds: local.duration_seconds,
           aspect_ratio: "9:16",
           model: selectedModel,
+          image_url: referenceImageUrl ?? null,
         }),
       });
 
       const data = await res.json() as {
         request_id?: string;
+        model?: string;
+        model_type?: string;
         error?: string;
         total_remaining?: number;
       };
@@ -165,9 +217,13 @@ export default function SceneCard({ scene, canGenerateVideo = false, totalVideoC
       }
 
       const requestId = data.request_id!;
+      const usedModelId = data.model;
+      const usedModelType = data.model_type ?? selectedModel;
       setVideoStatus("queued");
-      const modelLabel = selectedModel === "fast" ? "Ovi (Fast)" : "Veo 3 (Pro)";
-      const eta = selectedModel === "fast" ? "~30–60 seconds" : "2–4 minutes";
+      const modelLabel = usedModelType === "image" ? "Kling (Image-to-Video)"
+        : usedModelType === "fast" ? "Ovi (Fast)" : "Veo 3 (Pro)";
+      const eta = usedModelType === "image" ? "~1–2 minutes"
+        : usedModelType === "fast" ? "~30–60 seconds" : "2–4 minutes";
       toast.info(`Generating with ${modelLabel} — takes ${eta}…`);
 
       const timeoutId = setTimeout(() => {
@@ -180,9 +236,10 @@ export default function SceneCard({ scene, canGenerateVideo = false, totalVideoC
 
       pollRef.current = setInterval(async () => {
         try {
-          const statusRes = await fetch(
-            `/api/generate-video/status?request_id=${requestId}&scene_id=${local.id}&model=${selectedModel}`
-          );
+          const statusUrl = usedModelId
+            ? `/api/generate-video/status?request_id=${requestId}&scene_id=${local.id}&model_id=${encodeURIComponent(usedModelId)}`
+            : `/api/generate-video/status?request_id=${requestId}&scene_id=${local.id}&model=${usedModelType}`;
+          const statusRes = await fetch(statusUrl);
           const statusData = await statusRes.json() as { status: string; video_url?: string };
           consecutiveErrors = 0;
 
@@ -360,18 +417,64 @@ export default function SceneCard({ scene, canGenerateVideo = false, totalVideoC
                 </span>
               </div>
 
+              {/* Reference image upload */}
+              <div>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleReferenceImageSelect}
+                />
+                {referenceImagePreview ? (
+                  <div className="flex items-center gap-2 p-2 rounded-lg border border-white/10 bg-white/[0.03]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={referenceImagePreview}
+                      alt="Reference"
+                      className="h-10 w-10 rounded object-cover shrink-0 border border-white/10"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-zinc-400 truncate">
+                        {isUploadingImage ? "Uploading…" : "Reference image set — Kling will use it"}
+                      </p>
+                      <p className="text-[9px] text-zinc-600">Product stays consistent</p>
+                    </div>
+                    <button
+                      onClick={removeReferenceImage}
+                      disabled={isUploadingImage || isGenerating}
+                      className="shrink-0 text-zinc-600 hover:text-red-400 transition-colors disabled:opacity-40"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={isGenerating}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-white/10 text-zinc-500 hover:text-zinc-300 hover:border-violet-500/40 hover:bg-violet-500/5 transition-all text-xs disabled:opacity-40"
+                  >
+                    <ImageIcon className="size-3.5 shrink-0" />
+                    <span>Add product image — keeps your product in the video</span>
+                  </button>
+                )}
+              </div>
+
               {/* Generate button */}
               <Button
                 size="sm"
                 variant="outline"
                 className="w-full h-8 text-xs gap-1.5"
                 onClick={generateVideo}
-                disabled={isGenerating || currentCredits <= 0}
+                disabled={isGenerating || currentCredits <= 0 || isUploadingImage}
               >
                 {isGenerating && (
                   <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />
                 )}
                 🎬 {videoStatusLabel[videoStatus]}
+                {referenceImageUrl && !isGenerating && (
+                  <span className="text-[9px] text-violet-400 ml-1">(Kling image-to-video)</span>
+                )}
               </Button>
             </div>
           ) : (
@@ -393,7 +496,7 @@ export default function SceneCard({ scene, canGenerateVideo = false, totalVideoC
                   />
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[10px] text-muted-foreground">
-                      🔊 Audio included — generated by {selectedModel === "fast" ? "Ovi" : "Veo 3"}
+                      🎬 Generated by {referenceImageUrl ? "Kling (image-to-video)" : selectedModel === "fast" ? "Ovi" : "Veo 3"}
                     </p>
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={downloadVideo}>
                       ↓ Download MP4
