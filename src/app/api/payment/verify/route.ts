@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { BILLING_CYCLE_DAYS, type BillingCycle } from "@/lib/constants";
 import type { SubscriptionPlan } from "@/types/database";
 
 function verifyRazorpaySignature(
@@ -34,13 +35,13 @@ export async function POST(request: Request) {
       razorpay_payment_id,
       razorpay_signature,
       plan,
-      billingCycle,
+      billingCycle = "monthly",
     }: {
       razorpay_order_id: string;
       razorpay_payment_id: string;
       razorpay_signature: string;
       plan: SubscriptionPlan;
-      billingCycle?: "monthly" | "annual";
+      billingCycle?: BillingCycle;
     } = body;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -63,8 +64,8 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient();
     const now = new Date();
-    const daysToAdd = billingCycle === "annual" ? 365 : 30;
-    const periodEnd = new Date(now.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+    const days = BILLING_CYCLE_DAYS[billingCycle] ?? 30;
+    const periodEnd = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
     await admin.from("subscriptions").insert({
       user_id: user.id,
@@ -77,6 +78,7 @@ export async function POST(request: Request) {
       cancel_at_period_end: false,
     });
 
+    // Update user plan + reset video usage so they start fresh on the new plan
     await admin
       .from("users")
       .update({
@@ -84,6 +86,8 @@ export async function POST(request: Request) {
         payment_provider: "razorpay",
         subscription_status: "active",
         subscription_ends_at: periodEnd.toISOString(),
+        videos_used_this_month: 0,
+        scripts_used_this_month: 0,
       })
       .eq("id", user.id);
 

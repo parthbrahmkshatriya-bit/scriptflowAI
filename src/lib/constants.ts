@@ -435,6 +435,41 @@ export const PRICING_INR = {
   pro: 1999,
 };
 
+// ============================================================================
+// BILLING CYCLES & MULTI-PERIOD PRICING (INR)
+// ============================================================================
+
+export type BillingCycle = "monthly" | "quarterly" | "halfyearly" | "yearly";
+
+export const BILLING_CYCLE_DAYS: Record<BillingCycle, number> = {
+  monthly:    30,
+  quarterly:  90,
+  halfyearly: 180,
+  yearly:     365,
+};
+
+// Total amount charged per period (in INR)
+export const PLAN_PRICES_INR: Record<string, Record<BillingCycle, { perMonth: number; total: number; saving: number }>> = {
+  creator: {
+    monthly:    { perMonth: 799,  total: 799,   saving: 0    },
+    quarterly:  { perMonth: 719,  total: 2157,  saving: 240  },
+    halfyearly: { perMonth: 679,  total: 4074,  saving: 720  },
+    yearly:     { perMonth: 599,  total: 7188,  saving: 2400 },
+  },
+  studio: {
+    monthly:    { perMonth: 1999, total: 1999,  saving: 0    },
+    quarterly:  { perMonth: 1799, total: 5397,  saving: 600  },
+    halfyearly: { perMonth: 1699, total: 10194, saving: 1800 },
+    yearly:     { perMonth: 1499, total: 17988, saving: 6000 },
+  },
+  agency: {
+    monthly:    { perMonth: 4999, total: 4999,  saving: 0     },
+    quarterly:  { perMonth: 4499, total: 13497, saving: 1500  },
+    halfyearly: { perMonth: 4249, total: 25494, saving: 4500  },
+    yearly:     { perMonth: 3749, total: 44988, saving: 15000 },
+  },
+};
+
 export const EARLY_BIRD_ACTIVE = false;
 export const EARLY_BIRD_TOTAL = 100;
 export const EARLY_BIRD_CLAIMED = 0;
