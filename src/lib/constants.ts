@@ -85,7 +85,7 @@ export interface PlanFeature {
 export const PLAN_FEATURES: PlanFeature[] = [
   // Limits
   { category: 'limits', label: 'Scripts per month',       free: '3',         creator: '30',        studio: 'Unlimited', agency: 'Unlimited' },
-  { category: 'limits', label: 'Video generations/month', free: false,       creator: '3',         studio: '10',        agency: '25'        },
+  { category: 'limits', label: 'Video generations/month', free: false,       creator: '15',        studio: '50',        agency: '150'       },
 
   // Script generation
   { category: 'scripts', label: 'All platforms (YouTube, Reels, TikTok)', free: true,  creator: true,  studio: true,  agency: true  },
@@ -380,10 +380,10 @@ export const PLAN_LIMITS: Record<string, number> = {
 
 export const VIDEO_LIMITS: Record<string, number> = {
   free: 0,
-  creator: 3,
-  studio: 10,
-  pro: 25,
-  agency: 25,
+  creator: 15,
+  studio: 50,
+  pro: 150,
+  agency: 150,
 };
 
 export const PLATFORM_LABELS: Record<string, string> = {
