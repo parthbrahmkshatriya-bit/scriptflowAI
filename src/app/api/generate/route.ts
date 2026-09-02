@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateSchema, scriptOutputSchema } from "@/lib/schemas/generate";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
+import { expandConcept } from "@/lib/ai/brief-expander";
 import { PLAN_LIMITS, CLAUDE_MODEL } from "@/lib/constants";
 import { validateEmailDomain } from "@/lib/email-validation";
 import { checkUserSecurity } from "@/lib/security/check-user";
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
         { status: 422 }
       );
     }
-    const { concept, duration, platform, visual_style, ai_tool, scene_count, image_base64, image_purpose } = parsed.data;
+    const { concept, duration, platform, visual_style, ai_tool, scene_count, image_base64, image_purpose, target_audience, tone, key_message } = parsed.data;
 
     // Use admin client for user operations to bypass RLS
     const admin = createAdminClient();
@@ -106,6 +107,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Brief expansion: use Claude's training knowledge to enrich the concept with
+    // brand/product details before generating the script. This is best-effort —
+    // failure here falls back to raw concept without blocking generation.
+    const brief = await expandConcept(concept, {
+      target_audience: target_audience ?? null,
+      tone: tone ?? null,
+      key_message: key_message ?? null,
+    });
+
     // Build system prompt
     const systemPrompt = buildSystemPrompt({
       aiTool: ai_tool,
@@ -114,10 +124,16 @@ export async function POST(request: Request) {
       platform,
       sceneCount: scene_count,
       imagePurpose: image_purpose,
+      brief,
     });
 
-    // Build user message content (text-only or with image)
-    const userText = `Video concept: ${concept}\n\nGenerate the complete production script as JSON.`;
+    // Build user message — append optional context so Claude sees it alongside the concept
+    const contextLines: string[] = [`Video concept: ${concept}`];
+    if (target_audience) contextLines.push(`Target audience: ${target_audience}`);
+    if (tone) contextLines.push(`Desired tone: ${tone}`);
+    if (key_message) contextLines.push(`Key message to highlight: ${key_message}`);
+    contextLines.push("\nGenerate the complete production script as JSON.");
+    const userText = contextLines.join("\n");
 
     // Parse data URL with string ops instead of regex — a regex with a large capture group
     // on a multi-MB base64 string can overflow the call stack in V8's regexp engine.

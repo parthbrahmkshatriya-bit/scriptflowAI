@@ -31,6 +31,9 @@ export const generateSchema = z.object({
   scene_count: z.number().int().min(1).max(12).optional().nullable(),
   image_base64: z.string().max(7_500_000).optional().nullable(),
   image_purpose: z.enum(["visual_reference", "product_ad", "character_avatar"]).optional().nullable(),
+  target_audience: z.string().max(200).optional().nullable(),
+  tone: z.string().max(100).optional().nullable(),
+  key_message: z.string().max(300).optional().nullable(),
 });
 
 export type GenerateInput = z.infer<typeof generateSchema>;

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Sparkles, ImageIcon, X } from "lucide-react";
+import { Sparkles, ImageIcon, X, ChevronDown, ChevronUp } from "lucide-react";
 import LoadingDoodle from "@/components/ui/LoadingDoodle";
 import {
   DURATION_OPTIONS,
@@ -55,6 +55,12 @@ export default function GeneratePage() {
   const [imagePurpose, setImagePurpose] = useState<"visual_reference" | "product_ad" | "character_avatar">("visual_reference");
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Advanced context fields (optional)
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [targetAudience, setTargetAudience] = useState("");
+  const [tone, setTone] = useState("");
+  const [keyMessage, setKeyMessage] = useState("");
 
   useEffect(() => {
     const supabase = createClient();
@@ -164,6 +170,9 @@ export default function GeneratePage() {
           scene_count: sceneCount ?? undefined,
           image_base64: imageDataUrl ?? undefined,
           image_purpose: imageDataUrl ? imagePurpose : undefined,
+          target_audience: targetAudience.trim() || undefined,
+          tone: tone.trim() || undefined,
+          key_message: keyMessage.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -200,7 +209,7 @@ export default function GeneratePage() {
         <div className="fixed inset-0 z-[200] bg-[#050508]/85 backdrop-blur-sm flex items-center justify-center">
           <LoadingDoodle
             title="Generating your script…"
-            subtitle="Claude is writing your scenes — usually 5–10 seconds"
+            subtitle="Researching brand details, then writing your scenes — usually 8–15 seconds"
             size="lg"
           />
         </div>
@@ -285,6 +294,113 @@ export default function GeneratePage() {
               </button>
             ))}
           </div>
+
+          {/* Smart hint for short/vague concepts */}
+          {concept.trim().length >= 10 && concept.trim().length < 60 && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-xs text-amber-300/80">
+              <span className="shrink-0 mt-0.5">💡</span>
+              <span>
+                Pro tip: Add the brand name, target audience, and key benefit for more accurate, brand-specific scenes.{" "}
+                <button
+                  type="button"
+                  className="underline underline-offset-2 text-amber-300 hover:text-amber-200"
+                  onClick={() => setShowAdvanced(true)}
+                >
+                  Add context below →
+                </button>
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Advanced context (brand brief) */}
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-zinc-300 hover:text-white transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <span>Brand &amp; Audience Context</span>
+              <span className="text-xs font-normal text-zinc-500 bg-white/[0.06] px-2 py-0.5 rounded-full">
+                optional · improves quality
+              </span>
+              {(targetAudience || tone || keyMessage) && (
+                <span className="size-1.5 rounded-full bg-violet-400" />
+              )}
+            </span>
+            {showAdvanced ? <ChevronUp className="size-4 text-zinc-500" /> : <ChevronDown className="size-4 text-zinc-500" />}
+          </button>
+
+          {showAdvanced && (
+            <div className="px-4 pb-4 space-y-4 border-t border-white/[0.06]">
+              <p className="text-xs text-zinc-500 pt-3">
+                The more you tell us, the more specific and brand-accurate your script will be. AI uses this to pull brand knowledge from its training data.
+              </p>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="target_audience" className="text-sm font-medium text-zinc-300">
+                  Target audience
+                </Label>
+                <input
+                  id="target_audience"
+                  type="text"
+                  placeholder="e.g. Women 20-35, oily skin, beauty-conscious, budget-aware"
+                  value={targetAudience}
+                  onChange={(e) => setTargetAudience(e.target.value)}
+                  maxLength={200}
+                  className="w-full rounded-lg border border-white/[0.10] bg-white/[0.04] px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none focus:ring-1 focus:ring-violet-500/30 transition-colors"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="tone" className="text-sm font-medium text-zinc-300">
+                  Tone &amp; mood
+                </Label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {["Confident & Empowering", "Luxury & Premium", "Fun & Relatable", "Educational & Trustworthy", "Energetic & Bold", "Aspirational"].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTone(tone === t ? "" : t)}
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                        tone === t
+                          ? "border-violet-500/60 bg-violet-500/15 text-violet-300"
+                          : "border-white/[0.10] bg-white/[0.03] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.20]"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  id="tone"
+                  type="text"
+                  placeholder="Or describe your own tone…"
+                  value={tone}
+                  onChange={(e) => setTone(e.target.value)}
+                  maxLength={100}
+                  className="w-full rounded-lg border border-white/[0.10] bg-white/[0.04] px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none focus:ring-1 focus:ring-violet-500/30 transition-colors"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="key_message" className="text-sm font-medium text-zinc-300">
+                  Key message / USP
+                </Label>
+                <input
+                  id="key_message"
+                  type="text"
+                  placeholder="e.g. Reduces pores in 7 days — dermatologist tested"
+                  value={keyMessage}
+                  onChange={(e) => setKeyMessage(e.target.value)}
+                  maxLength={300}
+                  className="w-full rounded-lg border border-white/[0.10] bg-white/[0.04] px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-violet-500/60 focus:outline-none focus:ring-1 focus:ring-violet-500/30 transition-colors"
+                />
+                <p className="text-xs text-zinc-600">What&apos;s the single most important thing viewers should remember?</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Reference Image (optional) */}

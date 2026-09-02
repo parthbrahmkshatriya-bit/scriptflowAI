@@ -1,4 +1,5 @@
 import type { AiTool, VisualStyle, VideoDuration, Platform } from "@/types/database";
+import type { CreativeBrief } from "./brief-expander";
 
 const TOOL_INSTRUCTIONS: Record<AiTool, string> = {
   veo3: `Format ai_generation_prompt as a rich, director-level brief for VEO 3 — Google's highest-quality AI video model. VEO 3 generates both video AND audio from one prompt, so everything (visuals, camera, voiceover, sound) must be embedded in a single, highly detailed natural-language command. Vague prompts produce vague results; specific prompts produce cinematic ones.
@@ -71,8 +72,9 @@ export function buildSystemPrompt(params: {
   platform: Platform;
   sceneCount?: number | null;
   imagePurpose?: "visual_reference" | "product_ad" | "character_avatar" | null;
+  brief?: CreativeBrief | null;
 }): string {
-  const { aiTool, visualStyle, duration, platform, sceneCount, imagePurpose } = params;
+  const { aiTool, visualStyle, duration, platform, sceneCount, imagePurpose, brief } = params;
 
   const imageInstructions =
     imagePurpose === "visual_reference"
@@ -88,7 +90,25 @@ export function buildSystemPrompt(params: {
     ? `Generate exactly ${sceneCount} scene${sceneCount === 1 ? "" : "s"}. Total duration must sum to exactly ${totalSeconds} seconds (distribute evenly, ~${Math.round(totalSeconds / sceneCount)}s per scene).`
     : DURATION_SCENE_GUIDE[duration];
 
-  return `You are ScriptFlow AI, an expert short-form video script writer and AI prompt engineer.${imageInstructions}
+  // Build the creative brief block — injected when available
+  const briefBlock = brief ? `
+CREATIVE BRIEF (use this to ground every scene in specific, accurate details):
+- Product: ${brief.product_name}${brief.brand_name ? ` by ${brief.brand_name}` : ""}
+- What it is: ${brief.product_description}
+- Visual identity: ${brief.visual_identity.aesthetic} | Colors: ${brief.visual_identity.colors.join(", ")} | Appearance: ${brief.visual_identity.packaging_or_appearance}
+- Target audience: ${brief.target_audience}
+- Key messages: ${brief.key_messages.join(" | ")}
+- Campaign tone: ${brief.tone}
+- Hook angle: ${brief.campaign_hook}
+
+Use every detail above. Never write generic "product" or "person" — always reference the exact product name, its colors, packaging, and audience. Make viewers feel they are seeing a real, professional advertisement for this specific product.
+` : "";
+
+  return `You are ScriptFlow AI, a senior advertising creative director and AI prompt engineer who produces professional, broadcast-quality video scripts.${imageInstructions}${briefBlock}
+
+CORE MANDATE: Generate scripts that look like they were produced by a $500/hour ad agency — not a generic AI tool. Every scene must be specific, grounded in real product/brand details, and visually compelling. Never write vague descriptions like "the product is shown" — always describe exactly what is seen, with precise visual details.
+
+BRAND INTELLIGENCE DIRECTIVE: If a specific brand or product is mentioned in the concept, actively recall everything you know from your training data about that brand — its visual identity, typical packaging/colors, target demographic, market positioning, tone, and current campaigns. Apply this knowledge to make every scene feel authentic and brand-accurate. If only a product category is mentioned, apply your knowledge of that category's typical visual language, target consumer, and emotional resonance.
 
 Given a video concept, generate a complete scene-by-scene production script optimized for vertical 9:16 video.
 
@@ -99,7 +119,7 @@ Output ONLY valid JSON matching this exact schema. No markdown, no explanation, 
     {
       "scene_number": number,
       "duration_seconds": number,
-      "visual_description": "string — what the viewer sees",
+      "visual_description": "string — what the viewer sees, with specific product/brand/character visual details",
       "camera_direction": "string — angle, movement, framing",
       "voiceover_text": "string — natural conversational narration (REQUIRED for every scene, never null)",
       "onscreen_text": "string or null — max 10 words for text overlay",
@@ -119,6 +139,7 @@ RULES:
 6. onscreen_text: maximum 10 words per scene, null if not needed
 7. voiceover_text: REQUIRED on every scene — natural, conversational, NOT robotic. Even scene 1 must have voiceover (a punchy hook line works great)
 8. All content is for vertical 9:16 format
+9. SPECIFICITY IS MANDATORY: Every visual_description must name the actual product, brand colors, packaging details, and target person — never write placeholder generics
 
 AI GENERATION PROMPT FORMAT (for field "ai_generation_prompt"):
 ${TOOL_INSTRUCTIONS[aiTool]}
