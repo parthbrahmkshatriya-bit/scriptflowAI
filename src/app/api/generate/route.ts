@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { generateSchema, scriptOutputSchema } from "@/lib/schemas/generate";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { expandConcept } from "@/lib/ai/brief-expander";
+import { applyContinuity } from "@/lib/ai/continuity";
 import { PLAN_LIMITS, CLAUDE_MODEL } from "@/lib/constants";
 import { validateEmailDomain } from "@/lib/email-validation";
 import { checkUserSecurity } from "@/lib/security/check-user";
@@ -205,6 +206,11 @@ export async function POST(request: Request) {
       );
     }
 
+    // Lock the product's visual identity into every scene prompt. The model
+    // writes each scene independently and drifts; this makes the description
+    // byte-identical across scenes rather than leaving it to its discretion.
+    const scenes = applyContinuity(parsed_ai.scenes, brief, ai_tool);
+
     // Save script to DB
     const { data: script, error: scriptError } = await admin
       .from("scripts")
@@ -216,7 +222,7 @@ export async function POST(request: Request) {
         platform,
         visual_style,
         ai_tool,
-        scene_count: parsed_ai.scenes.length,
+        scene_count: scenes.length,
         generation_time_ms: generationTimeMs,
         model_used: CLAUDE_MODEL,
       })
@@ -229,7 +235,7 @@ export async function POST(request: Request) {
     }
 
     // Save scenes
-    const scenesData = parsed_ai.scenes.map((scene) => ({
+    const scenesData = scenes.map((scene) => ({
       script_id: script.id,
       scene_number: scene.scene_number,
       duration_seconds: scene.duration_seconds,
@@ -260,7 +266,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       script_id: script.id,
       title: parsed_ai.title,
-      scenes: parsed_ai.scenes,
+      scenes,
       generation_time_ms: generationTimeMs,
     });
   } catch (err) {
