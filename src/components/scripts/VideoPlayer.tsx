@@ -141,9 +141,9 @@ export function VideoPlayer({ prompt, sceneNumber, sceneId, durationSeconds, voi
             {/* Upgrade tooltip */}
             <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-20 w-60 pointer-events-none">
               <div className="rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-xs text-zinc-300 shadow-xl">
-                Upgrade to Pro plan to generate videos.{" "}
+                Video generation is available on Creator and above.{" "}
                 <a
-                  href="/pricing"
+                  href="/dashboard/upgrade"
                   className="text-[#00e5c0] hover:underline pointer-events-auto"
                 >
                   Upgrade now →

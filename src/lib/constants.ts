@@ -148,9 +148,9 @@ export const PRICING_TIERS: PricingTier[] = [
     inrAnnual: 19990,
   },
   {
-    name: 'Pro',
+    name: 'Agency',
     plan: 'agency',
-    description: 'For studios running high-volume campaigns',
+    description: 'For agencies running high-volume campaigns',
     usdMonthly: 59.99,
     usdAnnual: 599.0,
     inrMonthly: 4999,
@@ -359,12 +359,21 @@ export function getToolByValue(value: string): typeof AI_TOOL_OPTIONS[0] | undef
 
 export const MAX_CONCEPT_LENGTH = 10000;
 
+/**
+ * Display name per plan key.
+ *
+ * `agency` used to render as "Pro", colliding with the separate `pro` key and
+ * making the same tier read as "Pro" at ₹4,999 on the upgrade page while the
+ * ₹1,999 `studio` tier was also called "Pro" in marketing. Each key now shows
+ * its own name. `pro` itself is legacy — it is absent from PLAN_PRICES_INR so
+ * it cannot be bought — but it keeps a label for anyone already on it.
+ */
 export const PLAN_LABELS: Record<string, string> = {
   free: 'Free',
   creator: 'Creator',
   studio: 'Studio',
   pro: 'Pro',
-  agency: 'Pro',
+  agency: 'Agency',
 };
 
 /**

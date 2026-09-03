@@ -69,7 +69,7 @@ const PLAN_DEFS = [
   },
   {
     plan: "agency" as Plan,
-    name: "Pro",
+    name: "Agency",
     scripts: "600 scripts / month",
     videos: "150 videos / month",
     icon: Crown,
