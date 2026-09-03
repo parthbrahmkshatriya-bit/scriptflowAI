@@ -101,7 +101,7 @@ export async function POST(request: Request) {
       const upgradeMsg =
         plan === "free"
           ? `You've used all ${limit} free scripts this month. Upgrade to Creator ($9/mo) or Pro ($19/mo) for more.`
-          : `You've reached your ${limit}-script monthly limit. Upgrade to Pro for unlimited scripts.`;
+          : `You've reached your ${limit}-script monthly limit. Upgrade for a higher monthly allowance.`;
       return NextResponse.json(
         { error: upgradeMsg, plan, used, limit },
         { status: 403 }

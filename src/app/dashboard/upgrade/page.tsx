@@ -69,7 +69,7 @@ const PLAN_DEFS = [
   {
     plan: "studio" as Plan,
     name: "Studio",
-    scripts: "Unlimited scripts",
+    scripts: "300 scripts / month",
     videos: "50 videos / month",
     icon: Rocket,
     highlighted: false,
@@ -78,7 +78,7 @@ const PLAN_DEFS = [
   {
     plan: "agency" as Plan,
     name: "Pro",
-    scripts: "Unlimited scripts",
+    scripts: "600 scripts / month",
     videos: "150 videos / month",
     icon: Crown,
     highlighted: false,

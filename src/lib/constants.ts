@@ -61,13 +61,10 @@ export const CREDIT_PACKS: CreditPack[] = [
 // USAGE LIMITS (Scripts per month)
 // ============================================================================
 
-export const USAGE_LIMITS: Record<UserPlan, number> = {
-  free: 3,
-  creator: 15,
-  studio: 20,
-  pro: Infinity,
-  agency: Infinity,
-};
+// NOTE: a second script-limit table (USAGE_LIMITS) used to live here with
+// values that contradicted PLAN_LIMITS — creator 15 vs 30, studio 20 vs
+// unlimited. Nothing enforced it; only an unused getUserScriptLimit() helper
+// read it. Removed so PLAN_LIMITS is the single source of truth.
 
 // ============================================================================
 // PRICING (in USD and INR)
@@ -84,7 +81,7 @@ export interface PlanFeature {
 
 export const PLAN_FEATURES: PlanFeature[] = [
   // Limits
-  { category: 'limits', label: 'Scripts per month',       free: '3',         creator: '30',        studio: 'Unlimited', agency: 'Unlimited' },
+  { category: 'limits', label: 'Scripts per month',       free: '3',         creator: '30',        studio: '300',       agency: '600'       },
   { category: 'limits', label: 'Video generations/month', free: false,       creator: '15',        studio: '50',        agency: '150'       },
 
   // Script generation
@@ -153,7 +150,7 @@ export const PRICING_TIERS: PricingTier[] = [
   {
     name: 'Pro',
     plan: 'agency',
-    description: 'For creators who want unlimited scripts and videos',
+    description: 'For studios running high-volume campaigns',
     usdMonthly: 59.99,
     usdAnnual: 599.0,
     inrMonthly: 4999,
@@ -370,12 +367,21 @@ export const PLAN_LABELS: Record<string, string> = {
   agency: 'Pro',
 };
 
+/**
+ * Scripts per month, enforced in /api/generate.
+ *
+ * Studio/Pro/Agency were previously Infinity. At Sonnet pricing a script costs
+ * roughly $0.043, so an uncapped plan carried unbounded COGS against fixed
+ * revenue. These ceilings sit far above realistic use — 300/month is ten
+ * scripts every day without a break — so they bound the tail without
+ * constraining any legitimate workflow.
+ */
 export const PLAN_LIMITS: Record<string, number> = {
   free: 3,
   creator: 30,
-  studio: Infinity,
-  pro: Infinity,
-  agency: Infinity,
+  studio: 300,
+  pro: 600,
+  agency: 600,
 };
 
 export const VIDEO_LIMITS: Record<string, number> = {
@@ -477,7 +483,7 @@ export const EARLY_BIRD_CLAIMED = 0;
 export const CLAUDE_MODEL = 'claude-sonnet-4-6';
 
 export function getUserScriptLimit(plan: UserPlan): number {
-  return USAGE_LIMITS[plan];
+  return PLAN_LIMITS[plan] ?? PLAN_LIMITS.free;
 }
 
 // ============================================================================
@@ -487,13 +493,13 @@ export function getUserScriptLimit(plan: UserPlan): number {
 export const COPY = {
   LIMIT_REACHED: {
     free: "You've used all 3 free scripts this month",
-    creator: "You've used all 15 Creator scripts this month",
-    agency: "Error: Agency users should have unlimited scripts",
+    creator: "You've used all 30 Creator scripts this month",
+    agency: "You've used all 600 scripts this month",
   },
   UPGRADE_CTA: {
     free: 'Upgrade to Creator for more scripts and voiceover',
     creator: 'Upgrade to Studio for video generation',
-    studio: 'Upgrade to Pro for unlimited scripts and 25 videos/month',
+    studio: 'Upgrade to Agency for 600 scripts and 150 videos/month',
   },
   PAGE_TITLES: {
     dashboard: "Dashboard",
