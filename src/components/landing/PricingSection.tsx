@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Check, Zap, Rocket, Clock, Users } from "lucide-react"
+import { Check, Zap, Rocket, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AnimateOnScroll } from "@/components/landing/AnimateOnScroll"
 import {
@@ -80,32 +80,6 @@ const plans = [
       "Early access to new features",
     ],
   },
-  {
-    name: "Agency",
-    icon: Users,
-    regularMonthlyINR: REGULAR_PRICING.agency.inr,
-    earlyMonthlyINR: EARLY_BIRD_PRICING.agency.inr,
-    scripts: "600 scripts · 5 seats",
-    badge: null,
-    launchBadge: true,
-    highlighted: false,
-    tealHighlight: true,
-    cta: "Get Started",
-    href: "/signup",
-    // Kept in step with the agency column of PLAN_FEATURES. White-label export,
-    // a dedicated account manager and custom branding were listed here while
-    // this card was an unbuyable waitlist; they are not features the plan
-    // actually grants, so they cannot stay on a tier people can purchase.
-    features: [
-      "600 script generations / month",
-      "150 video generations / month",
-      "5 team seats included",
-      "Everything in Studio",
-      "Export as PDF",
-      "Priority generation",
-      "Priority support",
-    ],
-  },
 ]
 
 export function PricingSection() {
@@ -168,7 +142,7 @@ export function PricingSection() {
         </AnimateOnScroll>
 
         {/* Plan cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
           {plans.map((plan, i) => (
             <AnimateOnScroll key={plan.name} delay={i * 80}>
               <PlanCard plan={plan} />
