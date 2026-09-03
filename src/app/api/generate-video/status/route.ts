@@ -3,9 +3,14 @@ import { fal } from "@fal-ai/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const FAL_MODEL_PRO = "fal-ai/veo3";
-const FAL_MODEL_FAST = "fal-ai/ovi";
-const FAL_MODEL_IMAGE = "fal-ai/kling-video/v2.1/standard/image-to-video";
+import { VIDEO_MODELS } from "@/lib/video/models";
+
+// Status must poll the SAME endpoint the job was submitted to. The client
+// echoes back model_id from the submit response, which is authoritative; these
+// are only a fallback for older in-flight jobs that predate that field.
+const FAL_MODEL_PRO = VIDEO_MODELS.veo31_fast.endpoint;
+const FAL_MODEL_FAST = VIDEO_MODELS.veo31_lite.endpoint;
+const FAL_MODEL_IMAGE = VIDEO_MODELS.kling_i2v.endpoint;
 
 type VideoResult = Record<string, unknown> & {
   video?: { url: string };

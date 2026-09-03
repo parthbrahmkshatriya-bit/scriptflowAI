@@ -6,9 +6,12 @@ import { VIDEO_LIMITS } from "@/lib/constants";
 import { checkUserSecurity, checkVideoRateLimit } from "@/lib/security/check-user";
 import type { Plan } from "@/types/database";
 
-const FAL_MODEL_PRO = "fal-ai/veo3";
-const FAL_MODEL_FAST = "fal-ai/ovi";
-const FAL_MODEL_IMAGE = "fal-ai/kling-video/v2.1/standard/image-to-video";
+import {
+  resolveModel,
+  snapDuration,
+  formatDuration,
+  estimateCostUsd,
+} from "@/lib/video/models";
 
 export async function POST(request: Request) {
   try {
@@ -106,12 +109,16 @@ export async function POST(request: Request) {
 
     const hasImage = !!image_url?.trim();
     const isFast = !hasImage && model === "fast";
-    const FAL_MODEL = hasImage ? FAL_MODEL_IMAGE : isFast ? FAL_MODEL_FAST : FAL_MODEL_PRO;
+
+    // Resolve endpoint + duration from the registry. Each endpoint accepts only
+    // a fixed set of durations (Veo 3.1: 4/6/8s, Kling: 5/10s) and rejects
+    // anything else, so the request duration must be snapped before submitting.
+    const videoModel = resolveModel({ tier: isFast ? "draft" : "pro", hasImage });
+    const FAL_MODEL = videoModel.endpoint;
+    const renderSeconds = snapDuration(videoModel, duration_seconds);
+    const durationParam = formatDuration(videoModel, renderSeconds);
+    const estimatedCostUsd = estimateCostUsd(videoModel, renderSeconds);
     const veoAspect: "9:16" | "16:9" = aspect_ratio === "16:9" ? "16:9" : "9:16";
-    // OVI only supports 5s or 10s — snap to the nearest valid value
-    const oviDuration: 5 | 10 = duration_seconds <= 7 ? 5 : 10;
-    // Kling image-to-video also uses "5" | "10" string durations
-    const klingDuration: "5" | "10" = duration_seconds <= 7 ? "5" : "10";
 
     let finalPrompt: string;
 
@@ -172,14 +179,25 @@ export async function POST(request: Request) {
         input = {
           image_url: image_url!.trim(),
           prompt: finalPrompt,
-          duration: klingDuration,
+          duration: durationParam,
           aspect_ratio: veoAspect,
         };
-      } else if (isFast) {
-        input = { prompt: finalPrompt, aspect_ratio: veoAspect, duration: oviDuration };
       } else {
-        input = { prompt: finalPrompt, aspect_ratio: veoAspect };
+        // Veo 3.1 (both tiers): duration is an enum string ("4s"|"6s"|"8s"),
+        // resolution is pinned so a change to fal's default can't silently
+        // raise cost, and audio is generated in the same pass as the video.
+        input = {
+          prompt: finalPrompt,
+          aspect_ratio: veoAspect,
+          duration: durationParam,
+          resolution: videoModel.resolution,
+          generate_audio: true,
+        };
       }
+
+      console.info(
+        `[generate-video] model=${videoModel.key} duration=${renderSeconds}s est_cost=$${estimatedCostUsd.toFixed(3)} user=${user.id}`
+      );
 
       const result = await fal.queue.submit(FAL_MODEL, { input });
       request_id = result.request_id;
@@ -201,11 +219,32 @@ export async function POST(request: Request) {
       );
     }
 
-    // Use monthly quota first; fall back to purchased credits
+    // Use monthly quota first; fall back to purchased credits.
+    //
+    // Both writes carry an optimistic-concurrency guard on the value we read
+    // earlier. Without it two simultaneous requests both read the same balance
+    // and both write the same decrement, so one render is never paid for.
+    // A guard miss means a concurrent request already moved the counter.
     if (hasMonthlyQuota) {
-      await admin.from("users").update({ videos_used_this_month: used + 1 }).eq("id", user.id);
+      const { data: bumped } = await admin
+        .from("users")
+        .update({ videos_used_this_month: used + 1 })
+        .eq("id", user.id)
+        .eq("videos_used_this_month", used)
+        .select("id");
+      if (!bumped?.length) {
+        console.warn(`[generate-video] quota guard miss — concurrent request for user=${user.id}`);
+      }
     } else {
-      await admin.from("users").update({ video_credits: videoCredits - 1 }).eq("id", user.id);
+      const { data: debited } = await admin
+        .from("users")
+        .update({ video_credits: videoCredits - 1 })
+        .eq("id", user.id)
+        .eq("video_credits", videoCredits)
+        .select("id");
+      if (!debited?.length) {
+        console.warn(`[generate-video] credit guard miss — concurrent request for user=${user.id}`);
+      }
     }
 
     const creditsRemaining = hasMonthlyQuota ? videoCredits : videoCredits - 1;
@@ -215,6 +254,9 @@ export async function POST(request: Request) {
       request_id,
       model: FAL_MODEL,
       model_type: hasImage ? "image" : isFast ? "fast" : "pro",
+      // Endpoints accept only fixed durations, so this may differ from the
+      // scene's scripted length — the UI should show what actually renders.
+      duration_seconds: renderSeconds,
       used: hasMonthlyQuota ? used + 1 : used,
       limit,
       credits_remaining: creditsRemaining,
