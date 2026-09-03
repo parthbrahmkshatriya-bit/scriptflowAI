@@ -13,16 +13,8 @@ import {
   EARLY_BIRD_CLAIMED,
   PLAN_FEATURES,
   PLAN_PRICES_INR,
-  type BillingCycle,
 } from "@/lib/constants";
 import type { Plan } from "@/types/database";
-
-const BILLING_OPTIONS: { value: BillingCycle; label: string; save?: string }[] = [
-  { value: "monthly",    label: "Monthly" },
-  { value: "quarterly",  label: "Quarterly",   save: "10% off" },
-  { value: "halfyearly", label: "Half-yearly", save: "15% off" },
-  { value: "yearly",     label: "Yearly",      save: "25% off" },
-];
 
 type RazorpayResponse = {
   razorpay_order_id: string;
@@ -102,7 +94,6 @@ export default function UpgradePage() {
   const [currentPlan, setCurrentPlan] = useState<Plan>("free");
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState<string | null>(null);
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [processingPlan, setProcessingPlan] = useState<Plan | null>(null);
   const [processingUPI, setProcessingUPI] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
@@ -127,7 +118,7 @@ export default function UpgradePage() {
       const orderRes = await fetch("/api/payment/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: targetPlan, billingCycle }),
+        body: JSON.stringify({ plan: targetPlan }),
       });
       if (!orderRes.ok) {
         const err = await orderRes.json();
@@ -145,8 +136,7 @@ export default function UpgradePage() {
       }
 
       const def = PLAN_DEFS.find(p => p.plan === targetPlan)!;
-      const priceData = PLAN_PRICES_INR[targetPlan]?.[billingCycle];
-      const inrPrice = priceData?.perMonth ?? 0;
+      const inrPrice = PLAN_PRICES_INR[targetPlan] ?? 0;
 
       const rzp = new window.Razorpay({
         key: rzpKey,
@@ -162,7 +152,7 @@ export default function UpgradePage() {
             const verifyRes = await fetch("/api/payment/verify", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ ...response, plan: targetPlan, billingCycle }),
+              body: JSON.stringify({ ...response, plan: targetPlan }),
             });
             if (verifyRes.ok) {
               toast.success(`You're now on the ${def.name} plan! 🎉`);
@@ -191,7 +181,7 @@ export default function UpgradePage() {
       const orderRes = await fetch("/api/payment/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: targetPlan, billingCycle }),
+        body: JSON.stringify({ plan: targetPlan }),
       });
       if (!orderRes.ok) {
         const err = await orderRes.json();
@@ -209,8 +199,7 @@ export default function UpgradePage() {
       }
 
       const def = PLAN_DEFS.find(p => p.plan === targetPlan)!;
-      const priceDataUPI = PLAN_PRICES_INR[targetPlan]?.[billingCycle];
-      const inrPriceUPI = priceDataUPI?.perMonth ?? 0;
+      const inrPriceUPI = PLAN_PRICES_INR[targetPlan] ?? 0;
 
       const rzp = new window.Razorpay({
         key: rzpKey,
@@ -228,7 +217,7 @@ export default function UpgradePage() {
             const verifyRes = await fetch("/api/payment/verify", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ ...response, plan: targetPlan, billingCycle }),
+              body: JSON.stringify({ ...response, plan: targetPlan }),
             });
             if (verifyRes.ok) {
               toast.success(`You're now on the ${def.name} plan! 🎉`);
@@ -273,34 +262,6 @@ export default function UpgradePage() {
           </p>
         </div>
 
-        {/* Billing period selector */}
-        <div className="flex flex-wrap gap-2">
-          {BILLING_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setBillingCycle(opt.value)}
-              className={cn(
-                "relative px-4 py-2 rounded-xl text-sm font-medium border transition-all duration-150",
-                billingCycle === opt.value
-                  ? "bg-violet-600 text-white border-violet-600 shadow-lg shadow-violet-500/20"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-violet-500/40"
-              )}
-            >
-              {opt.label}
-              {opt.save && (
-                <span className={cn(
-                  "absolute -top-2 -right-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full",
-                  billingCycle === opt.value
-                    ? "bg-emerald-500 text-white"
-                    : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                )}>
-                  {opt.save}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
         {EARLY_BIRD_ACTIVE && (
           <div className="animated-grad-border p-[1.5px] rounded-2xl">
             <div className="rounded-[calc(1rem-1.5px)] bg-[#0a0812] px-5 py-4">
@@ -339,10 +300,7 @@ export default function UpgradePage() {
             const isCurrent = currentPlan === def.plan;
             const targetIdx = PLAN_ORDER.indexOf(def.plan);
             const isUpgrade = targetIdx > currentIdx;
-            const priceRow = PLAN_PRICES_INR[def.plan]?.[billingCycle];
-            const inrPrice = priceRow?.perMonth ?? 0;
-            const totalBilled = priceRow?.total ?? 0;
-            const saving = priceRow?.saving ?? 0;
+            const inrPrice = PLAN_PRICES_INR[def.plan] ?? 0;
 
             return (
               <div key={def.plan} className={cn(
@@ -377,14 +335,6 @@ export default function UpgradePage() {
                     </span>
                     {inrPrice > 0 && <span className="text-muted-foreground text-sm">/mo</span>}
                   </div>
-                  {billingCycle !== "monthly" && totalBilled > 0 && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      ₹{totalBilled.toLocaleString("en-IN")} billed {billingCycle === "quarterly" ? "every 3 months" : billingCycle === "halfyearly" ? "every 6 months" : "per year"}
-                    </p>
-                  )}
-                  {saving > 0 && (
-                    <p className="text-xs text-emerald-400 font-medium mt-0.5">Save ₹{saving.toLocaleString("en-IN")}</p>
-                  )}
                   <p className="text-xs text-muted-foreground mt-1">{def.scripts}</p>
                   <p className="text-xs text-muted-foreground">{def.videos}</p>
                 </div>

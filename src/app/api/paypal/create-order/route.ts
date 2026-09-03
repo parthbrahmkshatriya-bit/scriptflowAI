@@ -1,7 +1,8 @@
 ﻿import { createClient } from '@/lib/supabase/server';
 import { PRICING_TIERS } from '@/lib/constants';
 
-type BillingCycle = 'monthly' | 'annual';
+/** Annual was withdrawn — monthly is the only cycle sold. */
+type BillingCycle = 'monthly';
 
 type PayPalCreateOrderRequest = {
   plan: 'creator' | 'studio' | 'agency';
@@ -46,8 +47,13 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: 'Invalid plan selected.' }), { status: 400 });
   }
 
-  if (!['monthly', 'annual'].includes(billingCycle)) {
-    return new Response(JSON.stringify({ error: 'Invalid billing cycle.' }), { status: 400 });
+  // Reject rather than silently downgrade to monthly — a caller asking for a
+  // year must not be charged for a month without being told.
+  if (billingCycle !== 'monthly') {
+    return new Response(
+      JSON.stringify({ error: 'Only monthly billing is available.' }),
+      { status: 400 }
+    );
   }
 
   const supabase = await createClient();
@@ -66,7 +72,7 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: 'Selected plan is not available.' }), { status: 400 });
   }
 
-  const price = billingCycle === 'monthly' ? tier.usdMonthly : tier.usdAnnual;
+  const price = tier.usdMonthly;
 
   if (price <= 0) {
     return new Response(JSON.stringify({ error: 'Invalid price for selected plan.' }), { status: 400 });

@@ -2,6 +2,11 @@
 import { createClient } from '@/lib/supabase/server';
 import { PRICING_TIERS } from '@/lib/constants';
 
+/**
+ * Capture stays tolerant of 'annual' even though it is no longer sold: an
+ * order created just before the withdrawal is captured just after, and must
+ * settle with the period the customer actually paid for. Creation is strict.
+ */
 type BillingCycle = 'monthly' | 'annual';
 
 type PayPalCaptureOrderRequest = {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { BILLING_CYCLE_DAYS, type BillingCycle } from "@/lib/constants";
+import { BILLING_CYCLE_DAYS } from "@/lib/constants";
 import type { SubscriptionPlan } from "@/types/database";
 
 function verifyRazorpaySignature(
@@ -41,7 +41,10 @@ export async function POST(request: Request) {
       razorpay_payment_id: string;
       razorpay_signature: string;
       plan: SubscriptionPlan;
-      billingCycle?: BillingCycle;
+      // Typed loosely on purpose: a checkout begun before multi-month plans
+      // were withdrawn still posts its original cycle here and must settle
+      // with the period the customer actually paid for.
+      billingCycle?: string;
     } = body;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
