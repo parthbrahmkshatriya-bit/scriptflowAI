@@ -218,7 +218,7 @@ export default function YouTubeShortsScriptGeneratorPage() {
         <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-6 text-center">
           <p className="text-zinc-400 text-sm">
             🇮🇳 Available in India — Creator plan starting at{" "}
-            <span className="text-white font-semibold">₹599/mo</span> (introductory price). Pay with UPI, cards, or net banking.
+            <span className="text-white font-semibold">₹799/mo</span>. Pay with UPI, cards, or net banking.
           </p>
         </div>
       </section>
@@ -242,7 +242,7 @@ export default function YouTubeShortsScriptGeneratorPage() {
             },
             {
               q: "How many scripts can I generate for free?",
-              a: "3 scripts on the free plan, no credit card required. Upgrade to Creator (₹599/mo) for 30 scripts/month, or Pro (₹1,199/mo) for 600 scripts/month.",
+              a: "3 scripts on the free plan, no credit card required. Upgrade to Creator (₹799/mo) for 30 scripts/month, or Pro (₹4,999/mo) for 600 scripts/month.",
             },
             {
               q: "Can I use this for Instagram Reels and TikTok too?",

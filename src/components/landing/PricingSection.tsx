@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { Check, Zap, Rocket, Clock, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -14,13 +13,6 @@ import {
 } from "@/lib/constants"
 
 const spotsRemaining = EARLY_BIRD_TOTAL - EARLY_BIRD_CLAIMED
-
-type Billing = "monthly" | "annual"
-
-/* Annual = 17% off (pay 10 months, get 2 free) */
-function annualPrice(monthly: number) {
-  return Math.round((monthly * 10) / 12)
-}
 
 const plans = [
   {
@@ -71,7 +63,7 @@ const plans = [
     icon: Rocket,
     regularMonthlyINR: REGULAR_PRICING.pro.inr,
     earlyMonthlyINR: EARLY_BIRD_PRICING.pro.inr,
-    scripts: "600 scripts / month",
+    scripts: "300 scripts / month",
     badge: null,
     launchBadge: true,
     highlighted: false,
@@ -79,7 +71,7 @@ const plans = [
     cta: "Claim Launch Price",
     href: "/signup",
     features: [
-      "600 script generations / month",
+      "300 script generations / month",
       "Everything in Creator",
       "Script remix & variations",
       "Trending hooks library",
@@ -113,8 +105,6 @@ const plans = [
 ]
 
 export function PricingSection() {
-  const [billing, setBilling] = useState<Billing>("monthly")
-
   return (
     <section id="pricing" className="py-28 px-4 sm:px-6 lg:px-8 relative">
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#00e5c0]/[0.025] to-transparent pointer-events-none" />
@@ -168,45 +158,16 @@ export function PricingSection() {
           <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-white">
             Simple, transparent pricing
           </h2>
-          <p className="text-zinc-400 text-lg max-w-xl mx-auto mb-8">
+          <p className="text-zinc-400 text-lg max-w-xl mx-auto">
             Start for free. Upgrade when you&apos;re ready to scale your content creation.
           </p>
-
-          {/* Billing toggle */}
-          <div className="inline-flex items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.04] p-1">
-            <button
-              onClick={() => setBilling("monthly")}
-              className={cn(
-                "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200",
-                billing === "monthly"
-                  ? "bg-white/10 text-white shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-300"
-              )}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBilling("annual")}
-              className={cn(
-                "px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1.5",
-                billing === "annual"
-                  ? "bg-[#00e5c0]/20 text-[#00e5c0] shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-300"
-              )}
-            >
-              Annual
-              <span className="text-[10px] font-bold bg-[#00e5c0]/20 text-[#00e5c0] border border-[#00e5c0]/30 rounded px-1.5 py-0.5">
-                Save 17%
-              </span>
-            </button>
-          </div>
         </AnimateOnScroll>
 
         {/* Plan cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
           {plans.map((plan, i) => (
             <AnimateOnScroll key={plan.name} delay={i * 80}>
-              <PlanCard plan={plan} billing={billing} />
+              <PlanCard plan={plan} />
             </AnimateOnScroll>
           ))}
         </div>
@@ -219,19 +180,11 @@ export function PricingSection() {
   )
 }
 
-function PlanCard({
-  plan,
-  billing,
-}: {
-  plan: (typeof plans)[number]
-  billing: Billing
-}) {
+function PlanCard({ plan }: { plan: (typeof plans)[number] }) {
   const showEarlyBird = EARLY_BIRD_ACTIVE && plan.regularMonthlyINR > 0 && !plan.tealHighlight
   const baseMonthly = showEarlyBird ? plan.earlyMonthlyINR : plan.regularMonthlyINR
-  const displayPrice = billing === "annual" && baseMonthly > 0 ? annualPrice(baseMonthly) : baseMonthly
-  const regularDisplay = billing === "annual" && plan.regularMonthlyINR > 0
-    ? annualPrice(plan.regularMonthlyINR)
-    : plan.regularMonthlyINR
+  const displayPrice = baseMonthly
+  const regularDisplay = plan.regularMonthlyINR
   const Icon = plan.icon
 
   if (plan.tealHighlight) {
@@ -244,7 +197,7 @@ function PlanCard({
         }}
       >
         <div className="relative flex flex-col rounded-[calc(1rem-1.5px)] bg-[#07090f] p-6 h-full">
-          <CardInner plan={plan} displayPrice={displayPrice} regularDisplay={regularDisplay} showEarlyBird={showEarlyBird} billing={billing} Icon={Icon} isTeal />
+          <CardInner plan={plan} displayPrice={displayPrice} regularDisplay={regularDisplay} showEarlyBird={showEarlyBird} Icon={Icon} isTeal />
         </div>
       </div>
     )
@@ -262,7 +215,7 @@ function PlanCard({
               </div>
             </div>
           )}
-          <CardInner plan={plan} displayPrice={displayPrice} regularDisplay={regularDisplay} showEarlyBird={showEarlyBird} billing={billing} Icon={Icon} isHighlighted />
+          <CardInner plan={plan} displayPrice={displayPrice} regularDisplay={regularDisplay} showEarlyBird={showEarlyBird} Icon={Icon} isHighlighted />
         </div>
       </div>
     )
@@ -270,7 +223,7 @@ function PlanCard({
 
   return (
     <div className="relative flex flex-col rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 h-full hover:border-white/[0.14] hover:bg-white/[0.05] transition-all duration-300">
-      <CardInner plan={plan} displayPrice={displayPrice} regularDisplay={regularDisplay} showEarlyBird={showEarlyBird} billing={billing} Icon={Icon} />
+      <CardInner plan={plan} displayPrice={displayPrice} regularDisplay={regularDisplay} showEarlyBird={showEarlyBird} Icon={Icon} />
     </div>
   )
 }
@@ -280,7 +233,6 @@ function CardInner({
   displayPrice,
   regularDisplay,
   showEarlyBird,
-  billing,
   Icon,
   isHighlighted = false,
   isTeal = false,
@@ -289,7 +241,6 @@ function CardInner({
   displayPrice: number
   regularDisplay: number
   showEarlyBird: boolean
-  billing: Billing
   Icon: React.ElementType | null
   isHighlighted?: boolean
   isTeal?: boolean
@@ -328,10 +279,10 @@ function CardInner({
           </span>
           {plan.regularMonthlyINR > 0 && (
             <span className="text-zinc-500 text-xs">
-              /mo{billing === "annual" ? " · billed annually" : ""}
+              /mo
             </span>
           )}
-          {showEarlyBird && plan.launchBadge && billing === "monthly" && (
+          {showEarlyBird && plan.launchBadge && (
             <span className="text-zinc-600 text-xs line-through">₹{regularDisplay}</span>
           )}
         </div>
