@@ -253,7 +253,7 @@ function CardInner({
 
         <div className="flex items-baseline gap-1.5 mb-1">
           <span className="text-3xl font-bold tracking-tight text-white">
-            {plan.regularMonthlyINR === 0 ? "Free" : `₹${displayPrice}`}
+            {plan.regularMonthlyINR === 0 ? "Free" : `₹${displayPrice.toLocaleString("en-IN")}`}
           </span>
           {plan.regularMonthlyINR > 0 && (
             <span className="text-zinc-500 text-xs">
@@ -261,7 +261,7 @@ function CardInner({
             </span>
           )}
           {showEarlyBird && plan.launchBadge && (
-            <span className="text-zinc-600 text-xs line-through">₹{regularDisplay}</span>
+            <span className="text-zinc-600 text-xs line-through">₹{regularDisplay.toLocaleString("en-IN")}</span>
           )}
         </div>
 

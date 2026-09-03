@@ -6,6 +6,7 @@ import {
   Copy, Zap, Share2, Play,
 } from "lucide-react"
 import { FaqSection } from "@/components/landing/FaqSection"
+import { PricingSection } from "@/components/landing/PricingSection"
 import { faqs } from "@/components/landing/faq-data"
 import { AnimateOnScroll } from "@/components/landing/AnimateOnScroll"
 import { WorkflowPipeline } from "@/components/landing/WorkflowPipeline"
@@ -52,8 +53,8 @@ export default function HomePage() {
           </Link>
 
           <div className="hidden md:flex items-center gap-7 text-sm text-zinc-500">
-            {["How it works", "Features", "Demo", "FAQ"].map((label, i) => (
-              <a key={label} href={["#workflow","#features","#demo","#faq"][i]}
+            {["How it works", "Features", "Demo", "Pricing", "FAQ"].map((label, i) => (
+              <a key={label} href={["#workflow","#features","#demo","#pricing","#faq"][i]}
                 className="hover:text-white transition-colors duration-200">{label}</a>
             ))}
             <Link href="/contact" className="hover:text-white transition-colors duration-200">Contact us</Link>
@@ -521,6 +522,14 @@ export default function HomePage() {
       </section>
 
       {/* ═══════════════════════════════════
+          PRICING
+      ═══════════════════════════════════ */}
+      <div className="relative">
+        <div className="absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.05),transparent)" }} />
+        <PricingSection />
+      </div>
+
+      {/* ═══════════════════════════════════
           FAQ
       ═══════════════════════════════════ */}
       <div className="relative">
@@ -600,6 +609,7 @@ export default function HomePage() {
               { label: "Blog", href: "/blog" },
               { label: "Login", href: "/login" },
               { label: "Sign Up", href: "/signup" },
+              { label: "Pricing", href: "#pricing" },
               { label: "FAQ", href: "#faq" },
               { label: "Contact us", href: "/contact" },
             ].map(({ label, href }) => (
