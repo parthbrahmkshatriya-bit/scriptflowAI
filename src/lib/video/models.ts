@@ -113,6 +113,49 @@ export function snapDuration(model: VideoModel, requestedSeconds: number): numbe
   return best;
 }
 
+/**
+ * Choose a clip length that can actually hold the narration.
+ *
+ * snapDuration alone resolves ties downward to save cost, which is right for a
+ * silent clip but truncates a spoken one: the model reaches the end of the clip
+ * mid-sentence and the video looks half-finished. When narration is present the
+ * clip is instead the shortest allowed length that fits it — paying for two
+ * extra seconds beats shipping a cut-off ad.
+ *
+ * If the narration exceeds even the longest allowed clip, the maximum is used
+ * and the caller is told, so it can be surfaced rather than silently clipped.
+ */
+export function fitDuration(
+  model: VideoModel,
+  requestedSeconds: number,
+  neededForSpeechSeconds: number
+): { seconds: number; truncated: boolean } {
+  if (neededForSpeechSeconds <= 0) {
+    return { seconds: snapDuration(model, requestedSeconds), truncated: false };
+  }
+
+  const ascending = [...model.allowedDurations].sort((a, b) => a - b);
+  const viable = ascending.filter((d) => d >= neededForSpeechSeconds);
+
+  if (viable.length === 0) {
+    return { seconds: ascending[ascending.length - 1], truncated: true };
+  }
+
+  // Among lengths that hold the narration, take the one nearest the scripted
+  // duration so the cut still runs to its intended length — ties downward, so
+  // a short line in a 5s scene renders at 4s rather than paying for 6s.
+  let best = viable[0];
+  let bestDelta = Math.abs(requestedSeconds - best);
+  for (const candidate of viable) {
+    const delta = Math.abs(requestedSeconds - candidate);
+    if (delta < bestDelta) {
+      best = candidate;
+      bestDelta = delta;
+    }
+  }
+  return { seconds: best, truncated: false };
+}
+
 /** Render duration in the shape this endpoint expects. */
 export function formatDuration(model: VideoModel, seconds: number): string | number {
   switch (model.durationFormat) {

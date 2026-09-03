@@ -8,10 +8,15 @@ import type { Plan } from "@/types/database";
 
 import {
   resolveModel,
-  snapDuration,
+  fitDuration,
   formatDuration,
   estimateCostUsd,
 } from "@/lib/video/models";
+import {
+  detectVoiceProfile,
+  estimateSpeechSeconds,
+  buildVoiceDirection,
+} from "@/lib/video/voice";
 
 export async function POST(request: Request) {
   try {
@@ -115,7 +120,21 @@ export async function POST(request: Request) {
     // anything else, so the request duration must be snapped before submitting.
     const videoModel = resolveModel({ tier: isFast ? "draft" : "pro", hasImage });
     const FAL_MODEL = videoModel.endpoint;
-    const renderSeconds = snapDuration(videoModel, duration_seconds);
+
+    // Size the clip to the narration. A clip shorter than the voiceover gets
+    // cut off mid-sentence, which is what makes a generated ad look unfinished.
+    const voiceProfile = detectVoiceProfile(voiceover_text);
+    const speechSeconds = estimateSpeechSeconds(voiceover_text, voiceProfile);
+    const { seconds: renderSeconds, truncated: speechOverflows } = fitDuration(
+      videoModel,
+      duration_seconds,
+      speechSeconds
+    );
+    if (speechOverflows) {
+      console.warn(
+        `[generate-video] narration needs ~${speechSeconds.toFixed(1)}s but ${videoModel.key} caps at ${renderSeconds}s — it will be clipped. user=${user.id}`
+      );
+    }
     const durationParam = formatDuration(videoModel, renderSeconds);
     const estimatedCostUsd = estimateCostUsd(videoModel, renderSeconds);
     const veoAspect: "9:16" | "16:9" = aspect_ratio === "16:9" ? "16:9" : "9:16";
@@ -134,8 +153,19 @@ export async function POST(request: Request) {
     } else if (!isFast && ai_generation_prompt?.trim()) {
       // VEO 3 (Pro): use Claude's rich, pre-crafted VEO 3 prompt directly — it already contains
       // the visual scene, camera work, voiceover embedded, and quality directives.
+      //
+      // For non-English narration, restate the accent explicitly. Scripts saved
+      // before the language directive was added to the system prompt carry no
+      // accent instruction, and Veo defaults to an English-accented read of the
+      // local language — which is what a native speaker hears as wrong.
+      const accentOverride =
+        voiceProfile.code !== "en"
+          ? `\n\nNarration language: ${voiceProfile.name}. The voice must be ${voiceProfile.accent}. Deliver every word within the clip length — do not trail off or cut short.`
+          : "";
+
       finalPrompt = (
         ai_generation_prompt.trim() +
+        accentOverride +
         "\n\nQuality: Photorealistic, cinematic color grading, ultra-sharp, professional production quality, smooth motion, no compression artifacts."
       ).slice(0, 3000);
     } else {
@@ -147,12 +177,7 @@ export async function POST(request: Request) {
       if (!isFast) {
         const hasVoiceover = !!voiceover_text?.trim();
         if (hasVoiceover) {
-          parts.push(
-            `Voiceover narration: A professional narrator with a clear, neutral American English accent. ` +
-            `Warm, confident, and engaging delivery. Natural conversational pacing with slight emphasis on key words. ` +
-            `Studio-quality audio — crisp, clean voice with no distortion, no robotic artifacts, no background noise during speech. ` +
-            `The narrator speaks these exact words verbatim: "${voiceover_text!.trim()}"`
-          );
+          parts.push(buildVoiceDirection(voiceover_text!.trim()));
         }
         if (onscreen_text?.trim()) {
           parts.push(`On-screen text overlay reads: "${onscreen_text.trim()}"`);

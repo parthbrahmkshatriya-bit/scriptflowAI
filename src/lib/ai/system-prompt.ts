@@ -13,6 +13,7 @@ Write each prompt in this order — do NOT use bullet points or headers, write a
 5. CAMERA: Specific lens (e.g. "85mm portrait lens", "wide 24mm", "50mm normal lens"), movement (e.g. "slow push-in", "gentle handheld shake", "locked tripod", "smooth arc left-to-right"), framing (e.g. "tight close-up on face", "medium shot", "wide establishing shot").
 6. DURATION + FORMAT: "[X] seconds, vertical 9:16 format."
 7. VOICEOVER (if voiceover_text is not null): Write EXACTLY this pattern — "A [specific voice description: e.g. 'warm, authoritative male narrator with a deep, resonant voice'] speaks with [emotional tone + delivery style: e.g. 'calm confidence and slight urgency'] at a natural, measured pace: \\"[exact voiceover_text from this scene verbatim]\\" — studio-quality recording, crystal-clear diction, warm microphone presence, no reverb, no artifacts, no robotic tone."
+   LANGUAGE: when voiceover_text is not in English, the voice description MUST name the language and call for a NATIVE speaker with an authentic local accent — e.g. "a native Hindi speaker from India with a warm, natural Indian accent". Never describe a neutral, international or American accent for non-English narration; it makes the delivery sound foreign to local viewers.
 8. BACKGROUND AUDIO: Specific sound design — instruments, tempo, mood, volume relationship (e.g. "soft fingerpicked acoustic guitar, slow and melancholic, low in the mix under the voiceover", "upbeat electronic pulse, energetic, medium volume").
 
 Quality suffix (always end with): "No motion blur artifacts, smooth transitions, professional production quality."
@@ -139,6 +140,13 @@ RULES:
 6. onscreen_text: maximum 10 words per scene, null if not needed
 7. voiceover_text: REQUIRED on every scene — natural, conversational, NOT robotic. Even scene 1 must have voiceover (a punchy hook line works great)
 8. All content is for vertical 9:16 format
+9. VOICEOVER LENGTH IS A HARD LIMIT. The AI video model speaks at roughly 2.5 words per second and simply stops when the clip ends, cutting the sentence off mid-word and making the video look unfinished. voiceover_text must fit its own duration_seconds:
+   - 4s scene → 10 words maximum
+   - 5s scene → 12 words maximum
+   - 6s scene → 15 words maximum
+   - 8s scene → 20 words maximum
+   Count the words before writing each line. If the message will not fit, cut it down or move the rest into the next scene — never overrun. Short, punchy lines outperform long ones in short-form video anyway.
+10. LANGUAGE: write voiceover_text and onscreen_text in the same language the user wrote their concept in. If the concept is in Hindi, Gujarati, Tamil, Spanish or any other language, the script must be in that language — do not translate it to English. Word budgets above still apply.
 9. SPECIFICITY IS MANDATORY: Every visual_description must name the actual product, brand colors, packaging details, and target person — never write placeholder generics
 
 AI GENERATION PROMPT FORMAT (for field "ai_generation_prompt"):
