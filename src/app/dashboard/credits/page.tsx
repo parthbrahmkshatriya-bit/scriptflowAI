@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import BuyCreditsClient from "@/components/credits/BuyCreditsClient";
 import type { Metadata } from "next";
@@ -8,8 +8,7 @@ export const metadata: Metadata = { title: "Buy Video Credits — ScriptFlow AI"
 export const dynamic = "force-dynamic";
 
 export default async function CreditsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) redirect("/login");
 
   const admin = createAdminClient();

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/auth";
 import { Badge } from "@/components/ui/badge";
 import { PLAN_LABELS } from "@/lib/constants";
 import type { Plan } from "@/types/database";
@@ -22,12 +23,10 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getAuthUser();
   if (!user) redirect("/login");
+
+  const supabase = await createClient();
 
   const { data: profile } = await supabase
     .from("users")
