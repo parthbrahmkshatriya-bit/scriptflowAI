@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { ImageIcon, X } from "lucide-react";
 import type { Scene } from "@/types/database";
 import ScriptFeedback from "@/components/scripts/ScriptFeedback";
+import { trackScriptEvent } from "@/lib/analytics/track";
 
 interface Props {
   scene: Scene;
@@ -133,6 +134,12 @@ export default function SceneCard({ scene, canGenerateVideo = false, totalVideoC
     }
     setCopied(true);
     toast.success("Prompt copied!");
+    // A copied prompt is the clearest signal the script left for an external tool.
+    trackScriptEvent("prompt_copied", {
+      script_id: local.script_id,
+      scene_id: local.id,
+      metadata: { scene_number: local.scene_number },
+    });
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -229,6 +236,17 @@ export default function SceneCard({ scene, canGenerateVideo = false, totalVideoC
       const eta = usedModelType === "image" ? "~1–2 minutes"
         : usedModelType === "fast" ? "~40–90 seconds" : "1–3 minutes";
       toast.info(`Generating with ${modelLabel} — takes ${eta}…`);
+      // Rendering in-app is the other way a script gets used, as opposed to
+      // copying the prompt out to an external tool.
+      trackScriptEvent("video_generated", {
+        script_id: local.script_id,
+        scene_id: local.id,
+        metadata: {
+          model: usedModelType,
+          model_id: usedModelId ?? "",
+          used_image: !!referenceImageUrl,
+        },
+      });
 
       const timeoutId = setTimeout(() => {
         clearInterval(pollRef.current!);

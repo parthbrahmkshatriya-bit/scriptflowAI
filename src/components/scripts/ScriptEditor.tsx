@@ -65,7 +65,7 @@ export default function ScriptEditor({ scriptId, scriptTitle, initialScenes, can
         <h2 className="font-semibold text-lg">Scenes</h2>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <StitchButton scenes={scenes} scriptTitle={scriptTitle} />
-          <CopyAllButton text={allPrompts} />
+          <CopyAllButton text={allPrompts} scriptId={scriptId} sceneCount={scenes.length} />
           {isDirty && (
             <Button
               size="sm"

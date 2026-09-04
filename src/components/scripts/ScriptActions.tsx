@@ -16,6 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { trackScriptEvent } from "@/lib/analytics/track";
 
 interface Props {
   scriptId: string;
@@ -70,6 +71,7 @@ export default function ScriptActions({
       try {
         await navigator.clipboard.writeText(url);
         toast.success("Share link copied to clipboard!");
+        trackScriptEvent("share_link_copied", { script_id: scriptId });
       } catch {
         toast.success(`Share link: ${url}`);
       }
@@ -79,6 +81,7 @@ export default function ScriptActions({
       try {
         await navigator.clipboard.writeText(url);
         toast.success("Share link copied!");
+        trackScriptEvent("share_link_copied", { script_id: scriptId });
       } catch {
         toast.info(`Share link: ${url}`);
       }

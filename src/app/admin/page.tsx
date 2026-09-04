@@ -49,6 +49,26 @@ export default async function AdminPage({ searchParams }: PageProps) {
   const scriptTitleMap: Record<string, string> = {};
   for (const s of feedbackScripts ?? []) scriptTitleMap[s.id] = s.title;
 
+  // --- Script usage: what happened after generation ---
+  // Tolerates the table not existing yet, so the dashboard still renders on an
+  // environment where migration 008 has not been applied.
+  const { data: events } = await admin
+    .from("script_events")
+    .select("script_id, event_type")
+    .limit(50000);
+
+  const totalScripts = (allScripts ?? []).length;
+  const usedScriptIds = new Set<string>();
+  const eventCounts: Record<string, number> = {};
+  for (const e of events ?? []) {
+    eventCounts[e.event_type] = (eventCounts[e.event_type] ?? 0) + 1;
+    if (e.script_id && e.event_type !== "share_link_copied") usedScriptIds.add(e.script_id);
+  }
+  const copiedCount = (eventCounts.prompt_copied ?? 0) + (eventCounts.all_prompts_copied ?? 0);
+  const videosGenerated = eventCounts.video_generated ?? 0;
+  const scriptsUsed = usedScriptIds.size;
+  const usageRate = totalScripts > 0 ? Math.round((scriptsUsed / totalScripts) * 100) : 0;
+
   // --- Build user rows ---
   const userRows = (users ?? []).map((u) => ({
     ...u,
@@ -116,6 +136,35 @@ export default async function AdminPage({ searchParams }: PageProps) {
             <p className={`text-2xl font-bold ${s.highlight ? "text-violet-300" : ""}`}>{s.value}</p>
           </div>
         ))}
+      </div>
+
+      {/* Script usage — what happens after a script is generated */}
+      <div>
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">
+          Script usage
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+          {[
+            { label: "Scripts generated", value: totalScripts },
+            { label: "Scripts actually used", value: scriptsUsed, hint: `${usageRate}% of generated` },
+            { label: "Prompts copied out", value: copiedCount, hint: "taken to an external tool" },
+            { label: "Videos rendered here", value: videosGenerated },
+            { label: "Generated, never used", value: Math.max(0, totalScripts - scriptsUsed), warn: true },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className={`rounded-xl border p-4 space-y-1 ${
+                s.warn
+                  ? "border-amber-500/25 bg-amber-900/10"
+                  : "border-white/[0.06] bg-white/[0.03]"
+              }`}
+            >
+              <p className="text-[11px] text-muted-foreground">{s.label}</p>
+              <p className={`text-2xl font-bold ${s.warn ? "text-amber-300" : ""}`}>{s.value}</p>
+              {s.hint && <p className="text-[10px] text-muted-foreground">{s.hint}</p>}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Tabs */}
