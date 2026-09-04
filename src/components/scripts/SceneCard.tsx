@@ -6,14 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { ImageIcon, X } from "lucide-react";
+import { ImageIcon, X, Lock } from "lucide-react";
 import type { Scene } from "@/types/database";
 import ScriptFeedback from "@/components/scripts/ScriptFeedback";
 import { trackScriptEvent } from "@/lib/analytics/track";
+import { planAllowsProModel, planAllowsHD } from "@/lib/video/models";
 
 interface Props {
   scene: Scene;
   canGenerateVideo?: boolean;
+  plan?: string;
   totalVideoCredits?: number;
   monthlyVideoRemaining?: number;
   purchasedCredits?: number;
@@ -89,7 +91,7 @@ function EditableText({
 type VideoStatus = "idle" | "submitting" | "queued" | "processing" | "done" | "failed";
 type VideoModel = "fast" | "pro";
 
-export default function SceneCard({ scene, canGenerateVideo = false, totalVideoCredits = 0, monthlyVideoRemaining = 0, purchasedCredits = 0, onChange }: Props) {
+export default function SceneCard({ scene, canGenerateVideo = false, plan = "free", totalVideoCredits = 0, monthlyVideoRemaining = 0, purchasedCredits = 0, onChange }: Props) {
   const [local, setLocal] = useState<Scene>(scene);
   const [copied, setCopied] = useState(false);
   const [videoStatus, setVideoStatus] = useState<VideoStatus>(scene.video_url ? "done" : "idle");
@@ -99,6 +101,10 @@ export default function SceneCard({ scene, canGenerateVideo = false, totalVideoC
   // a Lite render still previews what Fast would look like. Users who want the
   // higher-fidelity render opt into it per scene.
   const [selectedModel, setSelectedModel] = useState<VideoModel>("fast");
+  const [hd, setHd] = useState(false);
+  // Entitlement is enforced server-side; this only reflects it in the UI.
+  const canUseProModel = planAllowsProModel(plan);
+  const canUseHD = planAllowsHD(plan);
   const [currentCredits, setCurrentCredits] = useState<number>(totalVideoCredits);
   const [referenceImageUrl, setReferenceImageUrl] = useState<string | null>(null);
   const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(null);
@@ -205,6 +211,7 @@ export default function SceneCard({ scene, canGenerateVideo = false, totalVideoC
           duration_seconds: local.duration_seconds,
           aspect_ratio: "9:16",
           model: selectedModel,
+          hd: hd && canUseHD,
           image_url: referenceImageUrl ?? null,
         }),
       });
@@ -414,19 +421,44 @@ export default function SceneCard({ scene, canGenerateVideo = false, totalVideoC
                     <span className="ml-1 opacity-60 font-normal">Veo 3.1</span>
                   </button>
                   <button
-                    onClick={() => setSelectedModel("pro")}
-                    title="Veo 3.1 Fast — higher fidelity, native audio. Costs about twice a Lite render."
-                    className={`px-3 py-1.5 font-medium transition-colors border-l border-white/10 ${
-                      selectedModel === "pro"
+                    onClick={() => canUseProModel && setSelectedModel("pro")}
+                    title={canUseProModel
+                      ? "Veo 3.1 Fast — higher fidelity, native audio. Costs about twice a Lite render."
+                      : "Veo 3.1 Fast is available on Studio and Agency plans"}
+                    className={`px-3 py-1.5 font-medium transition-colors border-l border-white/10 flex items-center gap-1 ${
+                      !canUseProModel
+                        ? "text-muted-foreground/50 cursor-not-allowed"
+                        : selectedModel === "pro"
                         ? "bg-violet-600 text-white"
                         : "text-muted-foreground hover:bg-white/5"
                     }`}
-                    disabled={isGenerating}
+                    disabled={isGenerating || !canUseProModel}
                   >
+                    {!canUseProModel && <Lock className="size-3" />}
                     ✨ Fast
-                    <span className="ml-1 opacity-60 font-normal">Veo 3.1</span>
+                    <span className="opacity-60 font-normal">Veo 3.1</span>
                   </button>
                 </div>
+
+                {/* HD is opt-in even where allowed — 1080p costs materially
+                    more per second, so 720p stays the default on every plan. */}
+                <button
+                  onClick={() => canUseHD && setHd((v) => !v)}
+                  title={canUseHD
+                    ? "Render at 1080p instead of 720p"
+                    : "1080p rendering is available on Studio and Agency plans"}
+                  disabled={isGenerating || !canUseHD}
+                  className={`px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors flex items-center gap-1 ${
+                    !canUseHD
+                      ? "border-white/10 text-muted-foreground/50 cursor-not-allowed"
+                      : hd
+                      ? "border-violet-500 bg-violet-600 text-white"
+                      : "border-white/10 text-muted-foreground hover:bg-white/5"
+                  }`}
+                >
+                  {!canUseHD && <Lock className="size-3" />}
+                  1080p
+                </button>
 
                 {/* Credit display */}
                 <span className="text-[10px] text-muted-foreground">

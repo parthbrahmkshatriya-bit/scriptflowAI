@@ -78,11 +78,55 @@ export const VIDEO_MODELS = {
 
 export type VideoModelKey = keyof typeof VIDEO_MODELS;
 
-/** Pick the model for a request. Image input always wins — it is the only
- *  path that preserves the actual product. */
-export function resolveModel(opts: { tier: VideoTier; hasImage: boolean }): VideoModel {
-  if (opts.hasImage) return VIDEO_MODELS.kling_i2v;
-  return opts.tier === "draft" ? VIDEO_MODELS.veo31_lite : VIDEO_MODELS.veo31_fast;
+/**
+ * Plans that may render with the higher-fidelity model and at 1080p.
+ *
+ * This is the one plan differentiator that improves margin rather than costing
+ * it: the expensive model is reachable only by the tiers whose price funds it,
+ * which is also what bounds the worst case on cheaper plans.
+ */
+const PREMIUM_RENDER_PLANS: ReadonlySet<string> = new Set(["studio", "pro", "agency"]);
+
+export function planAllowsProModel(plan: string): boolean {
+  return PREMIUM_RENDER_PLANS.has(plan);
+}
+
+export function planAllowsHD(plan: string): boolean {
+  return PREMIUM_RENDER_PLANS.has(plan);
+}
+
+export interface ResolvedModel {
+  model: VideoModel;
+  /** The plan asked for the pro model but is not entitled to it. */
+  downgraded: boolean;
+  resolution?: "720p" | "1080p";
+}
+
+/**
+ * Pick the model for a request. Image input always wins — it is the only path
+ * that preserves the actual product. Entitlement is decided here, server-side,
+ * so a client cannot ask for a model its plan does not pay for.
+ */
+export function resolveModel(opts: {
+  tier: VideoTier;
+  hasImage: boolean;
+  plan: string;
+  hd?: boolean;
+}): ResolvedModel {
+  if (opts.hasImage) {
+    return { model: VIDEO_MODELS.kling_i2v, downgraded: false };
+  }
+
+  const wantsPro = opts.tier === "pro";
+  const mayUsePro = planAllowsProModel(opts.plan);
+  const model = wantsPro && mayUsePro ? VIDEO_MODELS.veo31_fast : VIDEO_MODELS.veo31_lite;
+
+  // 1080p costs materially more per second, so it is opt-in even where allowed;
+  // 720p stays the default on every plan.
+  const resolution: "720p" | "1080p" =
+    opts.hd && planAllowsHD(opts.plan) ? "1080p" : "720p";
+
+  return { model, downgraded: wantsPro && !mayUsePro, resolution };
 }
 
 /** Look up by endpoint path — used by the status route to recover model config. */

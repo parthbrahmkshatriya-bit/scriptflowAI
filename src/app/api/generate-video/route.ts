@@ -92,6 +92,7 @@ export async function POST(request: Request) {
       duration_seconds?: number;
       aspect_ratio?: string;
       model?: "fast" | "pro";
+      hd?: boolean;
       image_url?: string | null;
     };
 
@@ -105,6 +106,7 @@ export async function POST(request: Request) {
       duration_seconds = 5,
       aspect_ratio = "9:16",
       model = "pro",
+      hd = false,
       image_url,
     } = body;
 
@@ -118,7 +120,16 @@ export async function POST(request: Request) {
     // Resolve endpoint + duration from the registry. Each endpoint accepts only
     // a fixed set of durations (Veo 3.1: 4/6/8s, Kling: 5/10s) and rejects
     // anything else, so the request duration must be snapped before submitting.
-    const videoModel = resolveModel({ tier: isFast ? "draft" : "pro", hasImage });
+    const {
+      model: videoModel,
+      downgraded: modelDowngraded,
+      resolution: renderResolution,
+    } = resolveModel({
+      tier: isFast ? "draft" : "pro",
+      hasImage,
+      plan,
+      hd,
+    });
     const FAL_MODEL = videoModel.endpoint;
 
     // Size the clip to the narration. A clip shorter than the voiceover gets
@@ -215,13 +226,15 @@ export async function POST(request: Request) {
           prompt: finalPrompt,
           aspect_ratio: veoAspect,
           duration: durationParam,
-          resolution: videoModel.resolution,
+          resolution: renderResolution ?? videoModel.resolution,
           generate_audio: true,
         };
       }
 
       console.info(
-        `[generate-video] model=${videoModel.key} duration=${renderSeconds}s est_cost=$${estimatedCostUsd.toFixed(3)} user=${user.id}`
+        `[generate-video] model=${videoModel.key} duration=${renderSeconds}s ` +
+        `res=${renderResolution ?? videoModel.resolution ?? "n/a"} plan=${plan} ` +
+        `est_cost=$${estimatedCostUsd.toFixed(3)} user=${user.id}`
       );
 
       const result = await fal.queue.submit(FAL_MODEL, { input });
@@ -278,7 +291,11 @@ export async function POST(request: Request) {
     return NextResponse.json({
       request_id,
       model: FAL_MODEL,
-      model_type: hasImage ? "image" : isFast ? "fast" : "pro",
+      model_type: hasImage ? "image" : videoModel.key === "veo31_fast" ? "pro" : "fast",
+      // True when the plan asked for the pro model without entitlement, so the
+      // UI can say why the render used the draft model instead.
+      model_downgraded: modelDowngraded,
+      resolution: renderResolution ?? videoModel.resolution ?? null,
       // Endpoints accept only fixed durations, so this may differ from the
       // scene's scripted length — the UI should show what actually renders.
       duration_seconds: renderSeconds,

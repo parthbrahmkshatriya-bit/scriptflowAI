@@ -108,6 +108,7 @@ export default async function ScriptPage({ params }: Props) {
         scriptTitle={script.title}
         initialScenes={scenes ?? []}
         canGenerateVideo={canGenerateVideo}
+        plan={plan}
         totalVideoCredits={totalRemaining}
         monthlyVideoRemaining={monthlyRemaining}
         purchasedCredits={videoCredits}
