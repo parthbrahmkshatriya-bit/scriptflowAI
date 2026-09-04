@@ -75,7 +75,11 @@ export function VideoPlayer({ prompt, sceneNumber, sceneId, durationSeconds, voi
     a.click();
   }
 
-  const isProPlan = ["studio", "agency"].includes(userPlan);
+  // Must match VIDEO_LIMITS: every plan above free has a video allowance
+  // (Creator 15, Studio 50, Pro/Agency 150). This previously listed only
+  // studio and agency, so Creator subscribers were sold 15 videos a month and
+  // then shown a disabled button.
+  const canGenerateVideo = ["creator", "studio", "pro", "agency"].includes(userPlan);
 
   return (
     <div className="space-y-2.5 pt-1">
@@ -102,7 +106,7 @@ export function VideoPlayer({ prompt, sceneNumber, sceneId, durationSeconds, voi
 
       {/* Buttons row */}
       <div className="flex items-center gap-2 flex-wrap">
-        {isProPlan ? (
+        {canGenerateVideo ? (
           <button
             onClick={generate}
             disabled={isGenerating}
@@ -125,7 +129,7 @@ export function VideoPlayer({ prompt, sceneNumber, sceneId, durationSeconds, voi
             ) : (
               <>
                 <Video className="size-3.5" />
-                Generate with Kling 2.0
+                Generate with Kling 2.1
               </>
             )}
           </button>
@@ -136,7 +140,7 @@ export function VideoPlayer({ prompt, sceneNumber, sceneId, durationSeconds, voi
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-xs font-medium text-zinc-600 cursor-not-allowed"
             >
               <Video className="size-3.5" />
-              Generate with Kling 2.0
+              Generate with Kling 2.1
             </button>
             {/* Upgrade tooltip */}
             <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-20 w-60 pointer-events-none">
