@@ -81,8 +81,8 @@ export interface PlanFeature {
 
 export const PLAN_FEATURES: PlanFeature[] = [
   // Limits
-  { category: 'limits', label: 'Scripts per month',       free: '3',         creator: '30',        studio: '300',       agency: '600'       },
-  { category: 'limits', label: 'Video generations/month', free: false,       creator: '15',        studio: '50',        agency: '150'       },
+  { category: 'limits', label: 'Scripts per month',       free: '3',         creator: '30',        studio: '150',       agency: '300'       },
+  { category: 'limits', label: 'Video generations/month', free: false,       creator: '~12',       studio: '~25',       agency: '~75'       },
 
   // Script generation
   { category: 'scripts', label: 'All platforms (YouTube, Reels, TikTok)', free: true,  creator: true,  studio: true,  agency: true  },
@@ -95,13 +95,12 @@ export const PLAN_FEATURES: PlanFeature[] = [
   // Media generation
   { category: 'media', label: 'AI Voiceover generation',  free: false, creator: true,  studio: true,  agency: true  },
   { category: 'media', label: 'AI Video generation',      free: false, creator: true,  studio: true,  agency: true  },
+  { category: 'media', label: 'Native audio with video',  free: false, creator: true,  studio: true,  agency: true  },
+  { category: 'media', label: 'Product image to video',   free: false, creator: true,  studio: true,  agency: true  },
 
   // Account
   { category: 'account', label: 'Script history & favorites', free: false, creator: true,  studio: true,  agency: true  },
   { category: 'account', label: 'Public script sharing',      free: false, creator: true,  studio: true,  agency: true  },
-  { category: 'account', label: 'Export as PDF',              free: false, creator: false, studio: true,  agency: true  },
-  { category: 'account', label: 'Priority generation',        free: false, creator: false, studio: true,  agency: true  },
-  { category: 'account', label: 'Team seats',                 free: false, creator: false, studio: false, agency: '5 seats' },
   { category: 'account', label: 'Priority support',           free: false, creator: false, studio: false, agency: true  },
 ];
 
@@ -388,17 +387,25 @@ export const PLAN_LABELS: Record<string, string> = {
 export const PLAN_LIMITS: Record<string, number> = {
   free: 3,
   creator: 30,
-  studio: 300,
-  pro: 600,
-  agency: 600,
+  studio: 150,
+  pro: 300,
+  agency: 300,
 };
 
+/**
+ * Video generations per month, enforced in /api/generate-video.
+ *
+ * Sized so a fully-consumed plan still holds ~50% gross margin at the default
+ * render (Veo 3.1 Lite, 4s, $0.20). The previous allowances were set when a
+ * render was assumed to cost the same regardless of model; at full use they
+ * put Studio slightly under water and left Agency at 2%.
+ */
 export const VIDEO_LIMITS: Record<string, number> = {
   free: 0,
-  creator: 15,
-  studio: 50,
-  pro: 150,
-  agency: 150,
+  creator: 12,
+  studio: 25,
+  pro: 75,
+  agency: 75,
 };
 
 export const PLATFORM_LABELS: Record<string, string> = {
@@ -432,13 +439,6 @@ export const REGULAR_PRICING = {
   agency:  { usd: 59.99, inr: 4999 },
 };
 
-export const EARLY_BIRD_PRICING = {
-  free:    { usd: 0,    inr: 0    },
-  creator: { usd: 6.99, inr: 599  },
-  studio:  { usd: 19.99,inr: 1599 },
-  pro:     { usd: 12.99,inr: 1199 }, // legacy alias
-  agency:  { usd: 49.99,inr: 3999 },
-};
 
 export const PRICING_USD = {
   creator: 9.99,
@@ -479,9 +479,6 @@ export const PLAN_PRICES_INR: Record<string, number> = {
   agency:  4999,
 };
 
-export const EARLY_BIRD_ACTIVE = false;
-export const EARLY_BIRD_TOTAL = 100;
-export const EARLY_BIRD_CLAIMED = 0;
 
 export const CLAUDE_MODEL = 'claude-sonnet-4-6';
 
@@ -497,12 +494,12 @@ export const COPY = {
   LIMIT_REACHED: {
     free: "You've used all 3 free scripts this month",
     creator: "You've used all 30 Creator scripts this month",
-    agency: "You've used all 600 scripts this month",
+    agency: "You've used all 300 scripts this month",
   },
   UPGRADE_CTA: {
     free: 'Upgrade to Creator for more scripts and voiceover',
     creator: 'Upgrade to Studio for video generation',
-    studio: 'Upgrade to Agency for 600 scripts and 150 videos/month',
+    studio: 'Upgrade to Agency for 300 scripts and 75 videos/month',
   },
   PAGE_TITLES: {
     dashboard: "Dashboard",

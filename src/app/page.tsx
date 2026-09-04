@@ -362,9 +362,9 @@ export default function HomePage() {
                     <Share2 className="size-5 text-violet-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white mb-1">Share, Export & Remix</h3>
+                    <h3 className="text-lg font-bold text-white mb-1">Share &amp; Save</h3>
                     <p className="text-zinc-500 text-sm leading-relaxed">
-                      Share any script with a public link. Export as plain text. Remix to generate a new variation. Script history saved forever on paid plans.
+                      Share any script with a public link. Copy any scene&apos;s prompt straight to your clipboard. Script history and favorites saved on paid plans.
                     </p>
                   </div>
                 </div>

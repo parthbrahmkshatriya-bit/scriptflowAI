@@ -3,14 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
-import { Check, X, Zap, Crown, Sparkles, Rocket, Clock, Star, QrCode } from "lucide-react";
+import { Check, X, Zap, Crown, Sparkles, Rocket, Star, QrCode } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  EARLY_BIRD_ACTIVE,
-  EARLY_BIRD_TOTAL,
-  EARLY_BIRD_CLAIMED,
   PLAN_FEATURES,
   PLAN_PRICES_INR,
 } from "@/lib/constants";
@@ -53,7 +50,7 @@ const PLAN_DEFS = [
     plan: "creator" as Plan,
     name: "Creator",
     scripts: "30 scripts / month",
-    videos: "15 videos / month",
+    videos: "~12 videos / month",
     icon: Zap,
     highlighted: true,
     badge: "Most Popular",
@@ -61,8 +58,8 @@ const PLAN_DEFS = [
   {
     plan: "studio" as Plan,
     name: "Studio",
-    scripts: "300 scripts / month",
-    videos: "50 videos / month",
+    scripts: "150 scripts / month",
+    videos: "~25 videos / month",
     icon: Rocket,
     highlighted: false,
     badge: null,
@@ -70,8 +67,8 @@ const PLAN_DEFS = [
   {
     plan: "agency" as Plan,
     name: "Agency",
-    scripts: "600 scripts / month",
-    videos: "150 videos / month",
+    scripts: "300 scripts / month",
+    videos: "~75 videos / month",
     icon: Crown,
     highlighted: false,
     badge: null,
@@ -84,8 +81,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   media: "AI Media",
   account: "Account",
 };
-
-const spotsRemaining = EARLY_BIRD_TOTAL - EARLY_BIRD_CLAIMED;
 
 export default function UpgradePage() {
   const router = useRouter();
@@ -262,37 +257,6 @@ export default function UpgradePage() {
           </p>
         </div>
 
-        {EARLY_BIRD_ACTIVE && (
-          <div className="animated-grad-border p-[1.5px] rounded-2xl">
-            <div className="rounded-[calc(1rem-1.5px)] bg-[#0a0812] px-5 py-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-xl bg-gradient-to-br from-violet-600/30 to-pink-600/30 border border-violet-500/30 flex items-center justify-center shrink-0">
-                    <Rocket className="size-4 text-violet-300" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-white">
-                      🚀 Launch Offer — First {EARLY_BIRD_TOTAL} users get special pricing!
-                    </p>
-                    <p className="text-xs text-zinc-400 mt-0.5 flex items-center gap-1">
-                      <Clock className="size-3" /> Offer ends when {EARLY_BIRD_TOTAL} spots are filled
-                    </p>
-                  </div>
-                </div>
-                <div className="text-left sm:text-right shrink-0 pl-12 sm:pl-0">
-                  <div className="text-xl font-bold tabular-nums text-white leading-none">
-                    {spotsRemaining}<span className="text-sm font-normal text-zinc-500">/{EARLY_BIRD_TOTAL}</span>
-                  </div>
-                  <p className="text-xs text-zinc-400">spots remaining</p>
-                  <div className="w-20 h-1 rounded-full bg-white/10 mt-1 overflow-hidden">
-                    <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-pink-500"
-                      style={{ width: `${Math.max(4, (EARLY_BIRD_CLAIMED / EARLY_BIRD_TOTAL) * 100)}%` }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Plan cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
