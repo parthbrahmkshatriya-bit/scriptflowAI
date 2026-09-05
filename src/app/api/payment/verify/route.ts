@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     const days = BILLING_CYCLE_DAYS[billingCycle] ?? 30;
     const periodEnd = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
-    await admin.from("subscriptions").insert({
+    const { error: subError } = await admin.from("subscriptions").insert({
       user_id: user.id,
       provider: "razorpay",
       provider_subscription_id: razorpay_payment_id,
@@ -82,8 +82,17 @@ export async function POST(request: Request) {
       cancel_at_period_end: false,
     });
 
+    if (subError) {
+      // Recorded but not fatal — the plan upgrade below is what the customer
+      // actually paid for, so it is still attempted.
+      console.error(
+        `[verify-payment] subscription insert failed for user=${user.id} plan=${plan} payment=${razorpay_payment_id}:`,
+        subError.message
+      );
+    }
+
     // Update user plan + reset video usage so they start fresh on the new plan
-    await admin
+    const { error: planError } = await admin
       .from("users")
       .update({
         plan,
@@ -94,6 +103,27 @@ export async function POST(request: Request) {
         scripts_used_this_month: 0,
       })
       .eq("id", user.id);
+
+    // This must never fail silently. It did once: plan_type lacked the 'studio'
+    // and 'agency' values, so those upgrades raised an enum error that was
+    // discarded while the route still answered success — customers paid and
+    // stayed on their old plan. Surfacing it means a failure is visible in logs
+    // and to the caller, with the payment id needed to reconcile it.
+    if (planError) {
+      console.error(
+        `[verify-payment] PLAN UPGRADE FAILED — payment taken but plan not applied. ` +
+        `user=${user.id} plan=${plan} payment=${razorpay_payment_id}:`,
+        planError.message
+      );
+      return NextResponse.json(
+        {
+          error:
+            "Payment received, but activating your plan failed. Contact support with your payment ID and it will be applied.",
+          payment_id: razorpay_payment_id,
+        },
+        { status: 500 }
+      );
+    }
 
     // Issue the plan's credit allowance for the new period. Replaces any
     // previous grant, so an upgrade takes effect immediately rather than
