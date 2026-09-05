@@ -16,12 +16,9 @@ interface Props {
   canGenerateVideo: boolean;
   plan: string;
   creditBalance?: number;
-  totalVideoCredits?: number;
-  monthlyVideoRemaining?: number;
-  purchasedCredits?: number;
 }
 
-export default function ScriptEditor({ scriptId, scriptTitle, initialScenes, canGenerateVideo, plan, creditBalance = 0, totalVideoCredits = 0, monthlyVideoRemaining = 0, purchasedCredits = 0 }: Props) {
+export default function ScriptEditor({ scriptId, scriptTitle, initialScenes, canGenerateVideo, plan, creditBalance = 0 }: Props) {
   const [scenes, setScenes] = useState<Scene[]>(initialScenes);
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -98,9 +95,6 @@ export default function ScriptEditor({ scriptId, scriptTitle, initialScenes, can
             canGenerateVideo={canGenerateVideo}
             plan={plan}
             creditBalance={creditBalance}
-            totalVideoCredits={totalVideoCredits}
-            monthlyVideoRemaining={monthlyVideoRemaining}
-            purchasedCredits={purchasedCredits}
             onChange={handleSceneChange}
           />
         ))}

@@ -6,13 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { toast } from "sonner";
-import { CREDIT_PACKS, VIDEO_LIMITS } from "@/lib/constants";
+import { CREDIT_PACKS, CREDITS_PER_PACK_VIDEO } from "@/lib/constants";
 import type { CreditPack } from "@/lib/constants";
 
 interface Props {
-  videoCredits: number;
-  plan: string;
-  videosUsed: number;
+  /** Current credit balance. */
+  creditBalance: number;
 }
 
 function loadRazorpayScript(): Promise<boolean> {
@@ -26,12 +25,10 @@ function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
-export default function BuyCreditsClient({ videoCredits, plan, videosUsed }: Props) {
+export default function BuyCreditsClient({ creditBalance }: Props) {
   const router = useRouter();
   const [loadingPack, setLoadingPack] = useState<string | null>(null);
-  const [balance, setBalance] = useState(videoCredits);
-
-  const planLimit = VIDEO_LIMITS[plan] ?? 0;
+  const [balance, setBalance] = useState(creditBalance);
 
   async function handleBuy(pack: CreditPack) {
     setLoadingPack(pack.id);
@@ -55,7 +52,7 @@ export default function BuyCreditsClient({ videoCredits, plan, videosUsed }: Pro
         amount: order.amount,
         currency: order.currency,
         name: "ScriptFlow AI",
-        description: `${pack.videos} Video Credits — ${pack.label}`,
+        description: `${pack.videos * CREDITS_PER_PACK_VIDEO} credits — ${pack.label}`,
         order_id: order.order_id,
         handler: async (response: {
           razorpay_order_id: string;
@@ -74,8 +71,8 @@ export default function BuyCreditsClient({ videoCredits, plan, videosUsed }: Pro
           });
           const result = await verify.json() as { success?: boolean; new_balance?: number; error?: string };
           if (result.success) {
-            setBalance(result.new_balance ?? balance + pack.videos);
-            toast.success(`${pack.videos} video credits added to your account!`);
+            setBalance(result.new_balance ?? balance + pack.videos * CREDITS_PER_PACK_VIDEO);
+            toast.success(`${pack.videos * CREDITS_PER_PACK_VIDEO} credits added to your account!`);
             router.refresh();
           } else {
             toast.error(result.error ?? "Payment verification failed");
@@ -97,10 +94,11 @@ export default function BuyCreditsClient({ videoCredits, plan, videosUsed }: Pro
       {/* Current balance */}
       <div className="flex items-center gap-4 p-4 rounded-xl border border-white/[0.08] bg-white/[0.03]">
         <div>
-          <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Video Credits</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">Credit balance</p>
           <p className="text-3xl font-bold">{balance}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {videosUsed}/{planLimit} monthly uses · {balance} paid credits · no expiry
+            A render costs 4 credits and up, depending on model, length and resolution.
+            Purchased credits never expire.
           </p>
         </div>
       </div>
@@ -108,7 +106,11 @@ export default function BuyCreditsClient({ videoCredits, plan, videosUsed }: Pro
       {/* Pack cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {CREDIT_PACKS.map((pack) => {
-          const perVideo = `₹${Math.round(pack.inrPaise / 100 / pack.videos)}/video`;
+          // Packs are still priced per video; a render is charged in credits.
+          // Showing both keeps the pack comparable to the old pricing while
+          // matching what actually gets deducted.
+          const packCredits = pack.videos * CREDITS_PER_PACK_VIDEO;
+          const perCredit = `₹${(pack.inrPaise / 100 / packCredits).toFixed(1)}/credit`;
           return (
             <Card
               key={pack.id}
@@ -122,10 +124,12 @@ export default function BuyCreditsClient({ videoCredits, plan, videosUsed }: Pro
               <CardHeader className="pb-2 pt-5 px-4">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{pack.label}</p>
                 <p className="text-3xl font-bold mt-1">
-                  {pack.videos} <span className="text-base font-normal text-muted-foreground">videos</span>
+                  {packCredits} <span className="text-base font-normal text-muted-foreground">credits</span>
                 </p>
                 <p className="text-2xl font-bold text-white mt-1">{pack.inrDisplay}</p>
-                <p className="text-xs text-muted-foreground">{perVideo}</p>
+                <p className="text-xs text-muted-foreground">
+                  {perCredit} · about {Math.floor(packCredits / 4)} standard renders
+                </p>
               </CardHeader>
               <CardContent className="px-4 pb-4">
                 <Button

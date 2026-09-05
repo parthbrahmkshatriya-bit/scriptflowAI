@@ -17,9 +17,6 @@ interface Props {
   canGenerateVideo?: boolean;
   plan?: string;
   creditBalance?: number;
-  totalVideoCredits?: number;
-  monthlyVideoRemaining?: number;
-  purchasedCredits?: number;
   onChange?: (updated: Scene) => void;
 }
 
@@ -92,7 +89,7 @@ function EditableText({
 type VideoStatus = "idle" | "submitting" | "queued" | "processing" | "done" | "failed";
 type VideoModel = "fast" | "pro";
 
-export default function SceneCard({ scene, canGenerateVideo = false, plan = "free", creditBalance: initialCreditBalance = 0, totalVideoCredits = 0, monthlyVideoRemaining = 0, purchasedCredits = 0, onChange }: Props) {
+export default function SceneCard({ scene, canGenerateVideo = false, plan = "free", creditBalance: initialCreditBalance = 0, onChange }: Props) {
   const [local, setLocal] = useState<Scene>(scene);
   const [copied, setCopied] = useState(false);
   const [videoStatus, setVideoStatus] = useState<VideoStatus>(scene.video_url ? "done" : "idle");
@@ -110,7 +107,6 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
   const canUseProModel = planAllowsProModel(plan);
   const canUseHD = planAllowsHD(plan);
 
-  const [currentCredits, setCurrentCredits] = useState<number>(totalVideoCredits);
   const [referenceImageUrl, setReferenceImageUrl] = useState<string | null>(null);
   const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -129,7 +125,7 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
     local.duration_seconds ?? 4,
     hd && canUseHD ? "1080p" : "720p"
   );
-  const affordable = creditBalance <= 0 || previewCost <= creditBalance;
+  const affordable = previewCost <= creditBalance;
 
 
   const updateField = useCallback(
@@ -244,7 +240,6 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
         credits_charged?: number;
         spend_ref?: string;
         error?: string;
-        total_remaining?: number;
       };
       if (!res.ok) {
         toast.error(data.error ?? "Failed to start generation");
@@ -253,9 +248,6 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
       }
 
       // Update local credit count from server response
-      if (typeof data.total_remaining === "number") {
-        setCurrentCredits(data.total_remaining);
-      }
       if (typeof data.credit_balance === "number") {
         setCreditBalance(data.credit_balance);
       }
@@ -493,15 +485,16 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
                   {previewCost} credits
                 </span>
 
-                {/* Credit display */}
+                {/* Credit balance — the figure that actually gates a render.
+                    This used to show the retired per-video counter, which no
+                    longer governs anything. */}
                 <span className="text-[10px] text-muted-foreground">
-                  {currentCredits > 0 ? (
+                  {creditBalance > 0 ? (
                     <>
-                      <span className="text-violet-400 font-semibold">{currentCredits}</span>
-                      {" "}video{currentCredits === 1 ? "" : "s"} left
-                      {purchasedCredits > 0 && monthlyVideoRemaining > 0 && (
-                        <span className="opacity-60"> ({monthlyVideoRemaining} monthly + {purchasedCredits} credits)</span>
-                      )}
+                      <span className={affordable ? "text-violet-400 font-semibold" : "text-amber-400 font-semibold"}>
+                        {creditBalance}
+                      </span>
+                      {" "}credit{creditBalance === 1 ? "" : "s"} left
                     </>
                   ) : (
                     <span className="text-amber-400">No credits left</span>
@@ -558,7 +551,7 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
                 variant="outline"
                 className="w-full h-8 text-xs gap-1.5"
                 onClick={generateVideo}
-                disabled={isGenerating || currentCredits <= 0 || isUploadingImage}
+                disabled={isGenerating || !affordable || isUploadingImage}
               >
                 {isGenerating && (
                   <span className="animate-spin inline-block w-3 h-3 border border-current border-t-transparent rounded-full" />

@@ -7,7 +7,7 @@ import {
   PLATFORM_LABELS,
   VISUAL_STYLE_LABELS,
   AI_TOOL_LABELS,
-  VIDEO_LIMITS,
+  PLAN_VIDEO_CREDITS,
 } from "@/lib/constants";
 import type { Platform, VisualStyle, AiTool, Plan } from "@/types/database";
 import ScriptActions from "@/components/scripts/ScriptActions";
@@ -34,13 +34,10 @@ export default async function ScriptPage({ params }: Props) {
     .eq("id", user.id)
     .single();
   const plan = (userProfile?.plan ?? "free") as Plan;
-  const videosUsed = (userProfile as Record<string, unknown>)?.videos_used_this_month as number ?? 0;
-  const videoCredits = (userProfile as Record<string, unknown>)?.video_credits as number ?? 0;
-  const videoLimit = VIDEO_LIMITS[plan] ?? 0;
-  const canGenerateVideo = videoLimit > 0 || videoCredits > 0;
-  const monthlyRemaining = Math.max(0, videoLimit - videosUsed);
-  const totalRemaining = monthlyRemaining + videoCredits;
   const creditBalance = (userProfile as Record<string, unknown>)?.credit_balance as number ?? 0;
+  // Video is offered when the plan carries an allowance or credits were bought.
+  // The per-video counters this used to read no longer gate anything.
+  const canGenerateVideo = (PLAN_VIDEO_CREDITS[plan] ?? 0) > 0 || creditBalance > 0;
 
   const { data: script } = await supabase
     .from("scripts")
@@ -111,9 +108,6 @@ export default async function ScriptPage({ params }: Props) {
         canGenerateVideo={canGenerateVideo}
         plan={plan}
         creditBalance={creditBalance}
-        totalVideoCredits={totalRemaining}
-        monthlyVideoRemaining={monthlyRemaining}
-        purchasedCredits={videoCredits}
       />
 
       {/* Script-level feedback — shown below all scenes */}
