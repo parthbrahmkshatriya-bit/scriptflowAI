@@ -434,6 +434,14 @@ export const VIDEO_LIMITS: Record<string, number> = {
  *
  * Plan credits expire at the end of the period; purchased credits do not.
  */
+/**
+ * Conversion rate for credit packs, which are still priced and marketed in
+ * whole videos. Eight credits covers a Veo 3.1 Lite render at 720p for the full
+ * 8 seconds, matching how migration 010 converted existing balances — so a pack
+ * buys no less than it did before credits existed.
+ */
+export const CREDITS_PER_PACK_VIDEO = 8;
+
 export const PLAN_VIDEO_CREDITS: Record<string, number> = {
   free: 0,
   creator: 60,
