@@ -17,8 +17,17 @@ export interface VideoModel {
   /** fal.ai endpoint path. */
   endpoint: string;
   label: string;
-  /** USD per second of generated video. */
-  costPerSecondUsd: number;
+  /**
+   * USD per second, keyed by resolution, WITH audio enabled — which is how this
+   * product always calls these endpoints.
+   *
+   * fal prices audio separately, and not uniformly: Veo 3.1 Fast is $0.10/s
+   * silent and $0.15/s with audio at either resolution, while Lite is $0.05/s
+   * at 720p and $0.08/s at 1080p with audio. A single rate plus a global
+   * resolution multiplier cannot express that, and using the silent rate
+   * understated Fast by 50%.
+   */
+  costPerSecondUsd: { readonly "720p": number; readonly "1080p": number };
   /** Returns synchronised dialogue/ambience/SFX in the same call. */
   nativeAudio: boolean;
   acceptsImage: boolean;
@@ -33,13 +42,14 @@ export interface VideoModel {
 export const VIDEO_MODELS = {
   /**
    * Standard delivery model. Replaced fal-ai/veo3 ($0.40/s) — Veo 3.1 is a
-   * newer generation at a quarter the cost with native audio retained.
+   * newer generation at a fraction the cost with native audio retained.
+   * Resolution does not change its rate.
    */
   veo31_fast: {
     key: "veo31_fast",
     endpoint: "fal-ai/veo3.1/fast",
     label: "Veo 3.1 Fast",
-    costPerSecondUsd: 0.1,
+    costPerSecondUsd: { "720p": 0.15, "1080p": 0.15 },
     nativeAudio: true,
     acceptsImage: false,
     allowedDurations: [4, 6, 8],
@@ -52,7 +62,7 @@ export const VIDEO_MODELS = {
     key: "veo31_lite",
     endpoint: "fal-ai/veo3.1/lite",
     label: "Veo 3.1 Lite",
-    costPerSecondUsd: 0.05,
+    costPerSecondUsd: { "720p": 0.05, "1080p": 0.08 },
     nativeAudio: true,
     acceptsImage: false,
     allowedDurations: [4, 6, 8],
@@ -61,14 +71,45 @@ export const VIDEO_MODELS = {
   },
 
   /**
-   * Image-to-video. The user's own product image carries product identity,
-   * which text prompting cannot reproduce. No native audio.
+   * Image-to-video, draft tier. The product image carries identity that text
+   * prompting cannot reproduce, and unlike Kling this still returns the
+   * scripted voiceover — at the same $0.05/s, so audio costs nothing extra.
+   */
+  veo31_lite_i2v: {
+    key: "veo31_lite_i2v",
+    endpoint: "fal-ai/veo3.1/lite/image-to-video",
+    label: "Veo 3.1 Lite (image-to-video)",
+    costPerSecondUsd: { "720p": 0.05, "1080p": 0.08 },
+    nativeAudio: true,
+    acceptsImage: true,
+    allowedDurations: [4, 6, 8],
+    durationFormat: "suffixed",
+    resolution: "720p",
+  },
+
+  /** Image-to-video, delivery tier. */
+  veo31_fast_i2v: {
+    key: "veo31_fast_i2v",
+    endpoint: "fal-ai/veo3.1/fast/image-to-video",
+    label: "Veo 3.1 Fast (image-to-video)",
+    costPerSecondUsd: { "720p": 0.15, "1080p": 0.15 },
+    nativeAudio: true,
+    acceptsImage: true,
+    allowedDurations: [4, 6, 8],
+    durationFormat: "suffixed",
+    resolution: "720p",
+  },
+
+  /**
+   * Retired: same price as Veo 3.1 Lite image-to-video but silent, which threw
+   * away the voiceover the script was written for. Kept in the registry only so
+   * the status route can still poll jobs submitted before the switch.
    */
   kling_i2v: {
     key: "kling_i2v",
     endpoint: "fal-ai/kling-video/v2.1/standard/image-to-video",
     label: "Kling 2.1 (image-to-video)",
-    costPerSecondUsd: 0.05,
+    costPerSecondUsd: { "720p": 0.05, "1080p": 0.05 },
     nativeAudio: false,
     acceptsImage: true,
     allowedDurations: [5, 10],
@@ -122,16 +163,6 @@ export function resolveModel(opts: {
   plan: string;
   hd?: boolean;
 }): ResolvedModel {
-  // Image-to-video runs on Kling at $0.05/s — as cheap as Lite, so it never
-  // consumes a premium slot regardless of plan.
-  if (opts.hasImage) {
-    return {
-      model: VIDEO_MODELS.kling_i2v,
-      downgraded: false,
-      usedPremium: false,
-    };
-  }
-
   const wantsPro = opts.tier === "pro";
   const mayUsePro = planAllowsProModel(opts.plan);
   const wantsHd = !!opts.hd;
@@ -141,6 +172,19 @@ export function resolveModel(opts: {
   const entitledPro = wantsPro && mayUsePro;
   const entitledHd = wantsHd && mayUseHd;
   const wantsPremium = entitledPro || entitledHd;
+
+  // Image-to-video. Previously this went to Kling, which is silent — a product
+  // ad came back without the voiceover its script was written for. Veo 3.1
+  // Lite image-to-video costs the same $0.05/s and returns native audio, so
+  // there is no reason to render these silent.
+  if (opts.hasImage) {
+    return {
+      model: entitledPro ? VIDEO_MODELS.veo31_fast_i2v : VIDEO_MODELS.veo31_lite_i2v,
+      downgraded: wantsPro && !mayUsePro,
+      usedPremium: wantsPremium,
+      resolution: entitledHd ? "1080p" : "720p",
+    };
+  }
 
   // The premium render counter that used to live here is gone. Credits bound
   // spend directly — an expensive combination simply costs more of them — so a
@@ -241,22 +285,21 @@ export function formatDuration(model: VideoModel, seconds: number): string | num
 }
 
 /**
- * 1080p costs more per second than 720p — Veo 3.1 Lite is $0.05 against $0.08,
- * so resolution has to be priced, not just duration and model.
+ * Estimated render spend in USD, for logging and credit pricing.
+ *
+ * Rates are per-model and per-resolution because fal does not price them
+ * uniformly: 1080p costs Lite 60% more but costs Fast nothing extra.
  */
-const RESOLUTION_MULTIPLIER: Record<string, number> = {
-  "720p": 1,
-  "1080p": 1.6,
-};
-
-/** Estimated render spend in USD, for logging and credit pricing. */
 export function estimateCostUsd(
   model: VideoModel,
   seconds: number,
   resolution?: string | null
 ): number {
-  const mult = RESOLUTION_MULTIPLIER[resolution ?? "720p"] ?? 1;
-  return Number((model.costPerSecondUsd * seconds * mult).toFixed(4));
+  const rate =
+    resolution === "1080p"
+      ? model.costPerSecondUsd["1080p"]
+      : model.costPerSecondUsd["720p"];
+  return Number((rate * seconds).toFixed(4));
 }
 
 /**

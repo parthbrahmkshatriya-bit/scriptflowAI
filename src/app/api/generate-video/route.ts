@@ -135,7 +135,10 @@ export async function POST(request: Request) {
     }
 
     const hasImage = !!image_url?.trim();
-    const isFast = !hasImage && model === "fast";
+    // The chosen tier applies to image renders too. This previously forced
+    // "pro" whenever an image was present, so a user who picked Lite alongside
+    // a product photo was charged for Fast without asking for it.
+    const isFast = model === "fast";
 
     // Resolve endpoint + duration from the registry. Each endpoint accepts only
     // a fixed set of durations (Veo 3.1: 4/6/8s, Kling: 5/10s) and rejects
@@ -174,16 +177,16 @@ export async function POST(request: Request) {
 
     let finalPrompt: string;
 
-    if (hasImage) {
-      // Image-to-video (Kling): build a concise visual motion prompt.
-      // The image itself provides product identity — prompt guides motion and camera.
+    if (hasImage && !videoModel.nativeAudio) {
+      // Silent image-to-video (legacy Kling path): strip to a motion prompt,
+      // since there is no narration to carry.
       const parts: string[] = [];
       const visual = [visual_description?.trim(), camera_direction?.trim()].filter(Boolean).join(". ");
       if (visual) parts.push(visual);
       if (onscreen_text?.trim()) parts.push(`Text overlay: "${onscreen_text.trim()}"`);
       parts.push("Professional product advertisement. Smooth cinematic motion. 9:16 vertical format. Photorealistic quality.");
       finalPrompt = parts.join(" ").slice(0, 1500);
-    } else if (!isFast && ai_generation_prompt?.trim()) {
+    } else if (ai_generation_prompt?.trim()) {
       // VEO 3 (Pro): use Claude's rich, pre-crafted VEO 3 prompt directly — it already contains
       // the visual scene, camera work, voiceover embedded, and quality directives.
       //
@@ -261,7 +264,8 @@ export async function POST(request: Request) {
     let request_id: string;
     try {
       let input: Record<string, unknown>;
-      if (hasImage) {
+      if (hasImage && !videoModel.nativeAudio) {
+        // Legacy Kling shape — no resolution or audio parameters.
         input = {
           image_url: image_url!.trim(),
           prompt: finalPrompt,
@@ -278,6 +282,11 @@ export async function POST(request: Request) {
           duration: durationParam,
           resolution: renderResolution ?? videoModel.resolution,
           generate_audio: true,
+          // Present only on the image-to-video endpoints; the text ones ignore
+          // an absent key rather than a null one, so it is added conditionally.
+          ...(videoModel.acceptsImage && image_url?.trim()
+            ? { image_url: image_url.trim() }
+            : {}),
         };
       }
 
