@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const { data: profile } = await admin
       .from("users")
-      .select("plan, videos_used_this_month, premium_videos_used_this_month, video_credits, credit_balance, scripts_used_this_month, usage_period_start")
+      .select("plan, videos_used_this_month, video_credits, credit_balance, credits_from_plan, plan_grant_period, scripts_used_this_month, usage_period_start")
       .eq("id", user.id)
       .single();
 
@@ -68,10 +68,29 @@ export async function POST(request: Request) {
     const used = usage.videosUsed;
     const limit = VIDEO_LIMITS[plan] ?? 0;
 
-    // A new period grants this plan's credit allowance. Plan credits replace the
-    // previous grant so they expire; purchased credits survive.
+    // Issue this plan's credit allowance when it is missing or out of date.
+    //
+    // Rollover alone is not enough. Migration 009 stamped every existing account
+    // into the CURRENT period so that applying it would not reset anyone
+    // mid-cycle — which also means no rollover fires until next month, and a
+    // subscriber who has never been granted would sit at zero until then.
+    //
+    // plan_grant_period records which month the current grant was issued for,
+    // so a NULL means never granted and an older month means the grant expired.
+    // Spending the balance down does not re-grant, because the period stamp is
+    // unchanged.
     let creditBalance = ((profile as Record<string, unknown>)?.credit_balance as number) ?? 0;
-    if (usage.rolledOver) {
+    const grantPeriodRaw = (profile as Record<string, unknown>)?.plan_grant_period as string | null;
+    const periodStart = new Date(
+      Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)
+    );
+    // Never granted, or granted for an earlier month. Mid-period plan changes
+    // are granted by the payment route, so they are not re-checked here.
+    const needsGrant =
+      (PLAN_VIDEO_CREDITS[plan] ?? 0) > 0 &&
+      (!grantPeriodRaw || new Date(grantPeriodRaw).getTime() < periodStart.getTime());
+
+    if (needsGrant) {
       const granted = await grantPlanCredits(admin, user.id, plan);
       if (typeof granted === "number" && granted >= 0) creditBalance = granted;
     }
