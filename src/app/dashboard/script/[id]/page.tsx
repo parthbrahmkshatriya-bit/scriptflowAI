@@ -8,7 +8,6 @@ import {
   VISUAL_STYLE_LABELS,
   AI_TOOL_LABELS,
   VIDEO_LIMITS,
-  PREMIUM_VIDEO_LIMITS,
 } from "@/lib/constants";
 import type { Platform, VisualStyle, AiTool, Plan } from "@/types/database";
 import ScriptActions from "@/components/scripts/ScriptActions";
@@ -31,7 +30,7 @@ export default async function ScriptPage({ params }: Props) {
   const admin = createAdminClient();
   const { data: userProfile } = await admin
     .from("users")
-    .select("plan, videos_used_this_month, premium_videos_used_this_month, video_credits")
+    .select("plan, videos_used_this_month, video_credits, credit_balance")
     .eq("id", user.id)
     .single();
   const plan = (userProfile?.plan ?? "free") as Plan;
@@ -41,9 +40,7 @@ export default async function ScriptPage({ params }: Props) {
   const canGenerateVideo = videoLimit > 0 || videoCredits > 0;
   const monthlyRemaining = Math.max(0, videoLimit - videosUsed);
   const totalRemaining = monthlyRemaining + videoCredits;
-  const premiumUsed = (userProfile as Record<string, unknown>)?.premium_videos_used_this_month as number ?? 0;
-  const premiumLimit = PREMIUM_VIDEO_LIMITS[plan] ?? 0;
-  const premiumRemaining = Math.max(0, premiumLimit - premiumUsed);
+  const creditBalance = (userProfile as Record<string, unknown>)?.credit_balance as number ?? 0;
 
   const { data: script } = await supabase
     .from("scripts")
@@ -113,7 +110,7 @@ export default async function ScriptPage({ params }: Props) {
         initialScenes={scenes ?? []}
         canGenerateVideo={canGenerateVideo}
         plan={plan}
-        premiumRemaining={premiumRemaining}
+        creditBalance={creditBalance}
         totalVideoCredits={totalRemaining}
         monthlyVideoRemaining={monthlyRemaining}
         purchasedCredits={videoCredits}

@@ -10,13 +10,13 @@ import { ImageIcon, X, Lock } from "lucide-react";
 import type { Scene } from "@/types/database";
 import ScriptFeedback from "@/components/scripts/ScriptFeedback";
 import { trackScriptEvent } from "@/lib/analytics/track";
-import { planAllowsProModel, planAllowsHD } from "@/lib/video/models";
+import { planAllowsProModel, planAllowsHD, VIDEO_MODELS, creditsFor } from "@/lib/video/models";
 
 interface Props {
   scene: Scene;
   canGenerateVideo?: boolean;
   plan?: string;
-  premiumRemaining?: number;
+  creditBalance?: number;
   totalVideoCredits?: number;
   monthlyVideoRemaining?: number;
   purchasedCredits?: number;
@@ -92,7 +92,7 @@ function EditableText({
 type VideoStatus = "idle" | "submitting" | "queued" | "processing" | "done" | "failed";
 type VideoModel = "fast" | "pro";
 
-export default function SceneCard({ scene, canGenerateVideo = false, plan = "free", premiumRemaining = 0, totalVideoCredits = 0, monthlyVideoRemaining = 0, purchasedCredits = 0, onChange }: Props) {
+export default function SceneCard({ scene, canGenerateVideo = false, plan = "free", creditBalance: initialCreditBalance = 0, totalVideoCredits = 0, monthlyVideoRemaining = 0, purchasedCredits = 0, onChange }: Props) {
   const [local, setLocal] = useState<Scene>(scene);
   const [copied, setCopied] = useState(false);
   const [videoStatus, setVideoStatus] = useState<VideoStatus>(scene.video_url ? "done" : "idle");
@@ -104,20 +104,33 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
   const [selectedModel, setSelectedModel] = useState<VideoModel>("fast");
   const [hd, setHd] = useState(false);
   // Entitlement is enforced server-side; this only reflects it in the UI.
-  const [premiumLeft, setPremiumLeft] = useState(premiumRemaining);
-  // Entitlement AND quota. A plan may be allowed the expensive settings and
-  // still be out of premium renders for the month.
-  const entitledPro = planAllowsProModel(plan);
-  const entitledHD = planAllowsHD(plan);
-  const hasPremiumLeft = premiumLeft > 0;
-  const canUseProModel = entitledPro && hasPremiumLeft;
-  const canUseHD = entitledHD && hasPremiumLeft;
+  const [creditBalance, setCreditBalance] = useState(initialCreditBalance);
+  // Entitlement only. Cost is bounded by the credit balance, so there is no
+  // separate cap on how often the expensive settings may be chosen.
+  const canUseProModel = planAllowsProModel(plan);
+  const canUseHD = planAllowsHD(plan);
+
   const [currentCredits, setCurrentCredits] = useState<number>(totalVideoCredits);
   const [referenceImageUrl, setReferenceImageUrl] = useState<string | null>(null);
   const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // What this scene will cost at the current settings, priced the same way the
+  // server prices it — so the number shown is the number charged.
+  const previewModel = referenceImageUrl
+    ? VIDEO_MODELS.kling_i2v
+    : selectedModel === "pro" && canUseProModel
+    ? VIDEO_MODELS.veo31_fast
+    : VIDEO_MODELS.veo31_lite;
+  const previewCost = creditsFor(
+    previewModel,
+    local.duration_seconds ?? 4,
+    hd && canUseHD ? "1080p" : "720p"
+  );
+  const affordable = creditBalance <= 0 || previewCost <= creditBalance;
+
 
   const updateField = useCallback(
     (field: EditableField, value: string) => {
@@ -227,8 +240,9 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
         request_id?: string;
         model?: string;
         model_type?: string;
-        premium_remaining?: number;
-        premium_quota_exhausted?: boolean;
+        credit_balance?: number;
+        credits_charged?: number;
+        spend_ref?: string;
         error?: string;
         total_remaining?: number;
       };
@@ -242,19 +256,13 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
       if (typeof data.total_remaining === "number") {
         setCurrentCredits(data.total_remaining);
       }
-      if (typeof data.premium_remaining === "number") {
-        setPremiumLeft(data.premium_remaining);
-        if (data.premium_remaining <= 0) {
-          setSelectedModel("fast");
-          setHd(false);
-        }
-      }
-      if (data.premium_quota_exhausted) {
-        toast.info("Premium renders used up this month — rendering with Veo 3.1 Lite at 720p.");
+      if (typeof data.credit_balance === "number") {
+        setCreditBalance(data.credit_balance);
       }
 
       const requestId = data.request_id!;
       const usedModelId = data.model;
+      const spendRef = data.spend_ref;
       const usedModelType = data.model_type ?? selectedModel;
       setVideoStatus("queued");
       const modelLabel = usedModelType === "image" ? "Kling 2.1 (image-to-video)"
@@ -287,7 +295,8 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
           const statusUrl = usedModelId
             ? `/api/generate-video/status?request_id=${requestId}&scene_id=${local.id}&model_id=${encodeURIComponent(usedModelId)}`
             : `/api/generate-video/status?request_id=${requestId}&scene_id=${local.id}&model=${usedModelType}`;
-          const statusRes = await fetch(statusUrl);
+          const pollUrl = spendRef ? `${statusUrl}&spend_ref=${encodeURIComponent(spendRef)}` : statusUrl;
+          const statusRes = await fetch(pollUrl);
           const statusData = await statusRes.json() as { status: string; video_url?: string };
           consecutiveErrors = 0;
 
@@ -442,10 +451,8 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
                   <button
                     onClick={() => canUseProModel && setSelectedModel("pro")}
                     title={canUseProModel
-                      ? "Veo 3.1 Fast — higher fidelity, native audio. Uses one premium render."
-                      : !entitledPro
-                      ? "Veo 3.1 Fast is available on Studio and Agency plans"
-                      : "No premium renders left this month"}
+                      ? "Veo 3.1 Fast — higher fidelity, native audio. Costs more credits."
+                      : "Veo 3.1 Fast is available on Studio and Agency plans"}
                     className={`px-3 py-1.5 font-medium transition-colors border-l border-white/10 flex items-center gap-1 ${
                       !canUseProModel
                         ? "text-muted-foreground/50 cursor-not-allowed"
@@ -466,10 +473,8 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
                 <button
                   onClick={() => canUseHD && setHd((v) => !v)}
                   title={canUseHD
-                    ? "Render at 1080p instead of 720p. Uses one premium render."
-                    : !entitledHD
-                    ? "1080p rendering is available on the Agency plan"
-                    : "No premium renders left this month"}
+                    ? "Render at 1080p instead of 720p. Costs more credits."
+                    : "1080p rendering is available on the Agency plan"}
                   disabled={isGenerating || !canUseHD}
                   className={`px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors flex items-center gap-1 ${
                     !canUseHD
@@ -483,12 +488,10 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
                   1080p
                 </button>
 
-                {/* Premium render allowance */}
-                {entitledPro && (
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                    {premiumLeft} premium left
-                  </span>
-                )}
+                {/* What this render costs, priced exactly as the server prices it */}
+                <span className={`text-[10px] whitespace-nowrap ${affordable ? "text-muted-foreground" : "text-red-400"}`}>
+                  {previewCost} credits
+                </span>
 
                 {/* Credit display */}
                 <span className="text-[10px] text-muted-foreground">

@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BILLING_CYCLE_DAYS } from "@/lib/constants";
+import { grantPlanCredits } from "@/lib/credits/credits";
 import type { SubscriptionPlan } from "@/types/database";
 
 function verifyRazorpaySignature(
@@ -93,6 +94,11 @@ export async function POST(request: Request) {
         scripts_used_this_month: 0,
       })
       .eq("id", user.id);
+
+    // Issue the plan's credit allowance for the new period. Replaces any
+    // previous grant, so an upgrade takes effect immediately rather than
+    // stacking on the old tier's remainder.
+    await grantPlanCredits(admin, user.id, plan);
 
     return NextResponse.json({ success: true });
   } catch (err) {

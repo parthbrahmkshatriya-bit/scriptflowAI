@@ -420,6 +420,28 @@ export const VIDEO_LIMITS: Record<string, number> = {
  *
  * Creator has none — it is already capped to Lite 720p by entitlement.
  */
+/**
+ * Monthly video credits per plan. One credit is $0.05 of render spend, so this
+ * table IS each plan's render cost ceiling — Creator can never cost more than
+ * $3.00 of video in a month, whatever models its users choose.
+ *
+ * Sized to hold the margins the entitlement rules produced, while letting every
+ * plan reach every model: an expensive render simply costs more credits.
+ *
+ *   creator  60  = $3.00   →  15 Lite/4s, or 3 Fast/1080p/8s
+ *   studio  220  = $11.00  →  55 Lite/4s, or 8 Fast/1080p/8s
+ *   agency  700  = $35.00  → 175 Lite/4s, or 26 Fast/1080p/8s
+ *
+ * Plan credits expire at the end of the period; purchased credits do not.
+ */
+export const PLAN_VIDEO_CREDITS: Record<string, number> = {
+  free: 0,
+  creator: 60,
+  studio: 220,
+  pro: 700,
+  agency: 700,
+};
+
 export const PREMIUM_VIDEO_LIMITS: Record<string, number> = {
   free: 0,
   creator: 0,

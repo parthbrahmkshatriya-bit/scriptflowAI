@@ -106,9 +106,7 @@ export interface ResolvedModel {
   model: VideoModel;
   /** The plan asked for the pro model but is not entitled to it. */
   downgraded: boolean;
-  /** Entitled, but the month's premium render quota is already spent. */
-  quotaExhausted: boolean;
-  /** This render consumes one premium slot. */
+  /** True when the render uses the Fast model or 1080p — costs more credits. */
   usedPremium: boolean;
   resolution?: "720p" | "1080p";
 }
@@ -123,8 +121,6 @@ export function resolveModel(opts: {
   hasImage: boolean;
   plan: string;
   hd?: boolean;
-  /** Premium renders left this month. Omit to skip quota enforcement. */
-  premiumRemaining?: number;
 }): ResolvedModel {
   // Image-to-video runs on Kling at $0.05/s — as cheap as Lite, so it never
   // consumes a premium slot regardless of plan.
@@ -132,7 +128,6 @@ export function resolveModel(opts: {
     return {
       model: VIDEO_MODELS.kling_i2v,
       downgraded: false,
-      quotaExhausted: false,
       usedPremium: false,
     };
   }
@@ -147,25 +142,14 @@ export function resolveModel(opts: {
   const entitledHd = wantsHd && mayUseHd;
   const wantsPremium = entitledPro || entitledHd;
 
-  const quotaLeft = opts.premiumRemaining ?? Infinity;
-  const quotaExhausted = wantsPremium && quotaLeft <= 0;
-
-  // Out of premium renders falls back to the cheapest configuration rather than
-  // failing — a downgraded render still produces a usable video.
-  if (quotaExhausted) {
-    return {
-      model: VIDEO_MODELS.veo31_lite,
-      downgraded: wantsPro && !mayUsePro,
-      quotaExhausted: true,
-      usedPremium: false,
-      resolution: "720p",
-    };
-  }
-
+  // The premium render counter that used to live here is gone. Credits bound
+  // spend directly — an expensive combination simply costs more of them — so a
+  // separate cap on how often it may be chosen is redundant. Plan entitlement
+  // above is kept, because that is a product differentiator rather than a cost
+  // control.
   return {
     model: entitledPro ? VIDEO_MODELS.veo31_fast : VIDEO_MODELS.veo31_lite,
     downgraded: wantsPro && !mayUsePro,
-    quotaExhausted: false,
     usedPremium: wantsPremium,
     // 1080p costs materially more per second, so it is opt-in even where
     // allowed; 720p stays the default on every plan.
@@ -256,14 +240,38 @@ export function formatDuration(model: VideoModel, seconds: number): string | num
   }
 }
 
+/**
+ * 1080p costs more per second than 720p — Veo 3.1 Lite is $0.05 against $0.08,
+ * so resolution has to be priced, not just duration and model.
+ */
+const RESOLUTION_MULTIPLIER: Record<string, number> = {
+  "720p": 1,
+  "1080p": 1.6,
+};
+
 /** Estimated render spend in USD, for logging and credit pricing. */
-export function estimateCostUsd(model: VideoModel, seconds: number): number {
-  return Number((model.costPerSecondUsd * seconds).toFixed(4));
+export function estimateCostUsd(
+  model: VideoModel,
+  seconds: number,
+  resolution?: string | null
+): number {
+  const mult = RESOLUTION_MULTIPLIER[resolution ?? "720p"] ?? 1;
+  return Number((model.costPerSecondUsd * seconds * mult).toFixed(4));
 }
 
-/** Model-weighted credit cost. One credit is $0.05 of render spend. */
+/**
+ * Model-weighted credit cost. One credit is $0.05 of render spend, so a plan's
+ * credit grant is exactly its render cost ceiling.
+ */
 export const USD_PER_CREDIT = 0.05;
 
-export function creditsFor(model: VideoModel, seconds: number): number {
-  return Math.max(1, Math.ceil(estimateCostUsd(model, seconds) / USD_PER_CREDIT));
+export function creditsFor(
+  model: VideoModel,
+  seconds: number,
+  resolution?: string | null
+): number {
+  return Math.max(
+    1,
+    Math.ceil(estimateCostUsd(model, seconds, resolution) / USD_PER_CREDIT)
+  );
 }

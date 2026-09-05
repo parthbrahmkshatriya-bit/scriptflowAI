@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { fal } from "@fal-ai/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { VIDEO_LIMITS, PREMIUM_VIDEO_LIMITS } from "@/lib/constants";
+import { VIDEO_LIMITS, PLAN_VIDEO_CREDITS } from "@/lib/constants";
 import { checkUserSecurity, checkVideoRateLimit } from "@/lib/security/check-user";
 import { getMonthlyUsage } from "@/lib/usage/monthly-period";
 import type { Plan } from "@/types/database";
@@ -12,7 +12,9 @@ import {
   fitDuration,
   formatDuration,
   estimateCostUsd,
+  creditsFor,
 } from "@/lib/video/models";
+import { spendCredits, refundCredits, grantPlanCredits } from "@/lib/credits/credits";
 import {
   detectVoiceProfile,
   estimateSpeechSeconds,
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const { data: profile } = await admin
       .from("users")
-      .select("plan, videos_used_this_month, premium_videos_used_this_month, video_credits, scripts_used_this_month, usage_period_start")
+      .select("plan, videos_used_this_month, premium_videos_used_this_month, video_credits, credit_balance, scripts_used_this_month, usage_period_start")
       .eq("id", user.id)
       .single();
 
@@ -64,28 +66,19 @@ export async function POST(request: Request) {
     // so a missed cron run cannot leave an account permanently capped.
     const usage = await getMonthlyUsage(admin, user.id, profile as Record<string, unknown>);
     const used = usage.videosUsed;
-    const premiumUsed = usage.premiumVideosUsed;
-    const premiumLimit = PREMIUM_VIDEO_LIMITS[plan] ?? 0;
-    const premiumRemaining = Math.max(0, premiumLimit - premiumUsed);
     const limit = VIDEO_LIMITS[plan] ?? 0;
-    const hasMonthlyQuota = used < limit;
-    const hasCredits = videoCredits > 0;
 
-    if (limit === 0 && !hasCredits) {
-      return NextResponse.json(
-        { error: "Video generation is available on Creator plan and above. Upgrade to unlock." },
-        { status: 403 }
-      );
+    // A new period grants this plan's credit allowance. Plan credits replace the
+    // previous grant so they expire; purchased credits survive.
+    let creditBalance = ((profile as Record<string, unknown>)?.credit_balance as number) ?? 0;
+    if (usage.rolledOver) {
+      const granted = await grantPlanCredits(admin, user.id, plan);
+      if (typeof granted === "number" && granted >= 0) creditBalance = granted;
     }
 
-    if (!hasMonthlyQuota && !hasCredits) {
+    if ((PLAN_VIDEO_CREDITS[plan] ?? 0) === 0 && creditBalance <= 0 && videoCredits <= 0) {
       return NextResponse.json(
-        {
-          error: `Monthly limit reached (${limit}/${limit}). Buy credit packs to keep generating.`,
-          used,
-          limit,
-          credits: videoCredits,
-        },
+        { error: "Video generation is available on Creator plan and above. Upgrade to unlock." },
         { status: 403 }
       );
     }
@@ -131,7 +124,6 @@ export async function POST(request: Request) {
     const {
       model: videoModel,
       downgraded: modelDowngraded,
-      quotaExhausted: premiumQuotaExhausted,
       usedPremium,
       resolution: renderResolution,
     } = resolveModel({
@@ -139,7 +131,6 @@ export async function POST(request: Request) {
       hasImage,
       plan,
       hd,
-      premiumRemaining,
     });
     const FAL_MODEL = videoModel.endpoint;
 
@@ -158,7 +149,8 @@ export async function POST(request: Request) {
       );
     }
     const durationParam = formatDuration(videoModel, renderSeconds);
-    const estimatedCostUsd = estimateCostUsd(videoModel, renderSeconds);
+    const estimatedCostUsd = estimateCostUsd(videoModel, renderSeconds, renderResolution);
+    const creditCost = creditsFor(videoModel, renderSeconds, renderResolution);
     const veoAspect: "9:16" | "16:9" = aspect_ratio === "16:9" ? "16:9" : "9:16";
 
     let finalPrompt: string;
@@ -219,6 +211,34 @@ export async function POST(request: Request) {
 
     fal.config({ credentials: apiKey });
 
+    // Charge before submitting. Deducting first makes concurrent renders unable
+    // to draw on the same balance, and a submission failure is refunded below —
+    // the previous order charged on submit and never gave anything back.
+    // Identify the charge before it happens. The fal request id only exists
+    // after a successful submit, so a locally generated reference is what makes
+    // the refund below addressable — and makes the spend idempotent on retry.
+    const spendRef = crypto.randomUUID();
+    const spend = await spendCredits(admin, {
+      userId: user.id,
+      amount: creditCost,
+      jobId: spendRef,
+      modelKey: videoModel.key,
+      seconds: renderSeconds,
+      resolution: renderResolution ?? null,
+    });
+
+    if (!spend.ok && !spend.unavailable) {
+      return NextResponse.json(
+        {
+          error: `Not enough credits — this render costs ${creditCost} and you have ${creditBalance} left.`,
+          credits_required: creditCost,
+          credits_remaining: creditBalance,
+        },
+        { status: 403 }
+      );
+    }
+    if (!spend.unavailable) creditBalance = spend.balance;
+
     let request_id: string;
     try {
       let input: Record<string, unknown>;
@@ -258,6 +278,13 @@ export async function POST(request: Request) {
       const isForbidden = lower.includes("forbidden") || falMsg.includes("403");
       // Log full detail server-side; never expose internal config hints to the user
       console.error("[generate-video] fal.ai error detail:", falMsg);
+
+      // The charge happened before submission, so give it back. Nothing was
+      // rendered and the user must not pay for a job that never started.
+      if (!spend.unavailable) {
+        await refundCredits(admin, user.id, spendRef, "fal submission failed");
+      }
+
       return NextResponse.json(
         {
           error: isAuthErr || isForbidden
@@ -268,49 +295,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Use monthly quota first; fall back to purchased credits.
-    //
-    // Both writes carry an optimistic-concurrency guard on the value we read
-    // earlier. Without it two simultaneous requests both read the same balance
-    // and both write the same decrement, so one render is never paid for.
-    // A guard miss means a concurrent request already moved the counter.
-    if (hasMonthlyQuota) {
-      const { data: bumped } = await admin
-        .from("users")
-        .update({ videos_used_this_month: used + 1 })
-        .eq("id", user.id)
-        .eq("videos_used_this_month", used)
-        .select("id");
-      if (!bumped?.length) {
-        console.warn(`[generate-video] quota guard miss — concurrent request for user=${user.id}`);
-      }
-    } else {
-      const { data: debited } = await admin
-        .from("users")
-        .update({ video_credits: videoCredits - 1 })
-        .eq("id", user.id)
-        .eq("video_credits", videoCredits)
-        .select("id");
-      if (!debited?.length) {
-        console.warn(`[generate-video] credit guard miss — concurrent request for user=${user.id}`);
-      }
-    }
+    // Credits were already charged above. This counter is kept only so the
+    // existing "videos this month" display keeps working; it no longer gates
+    // anything, because the credit balance does.
+    await admin
+      .from("users")
+      .update({ videos_used_this_month: used + 1 })
+      .eq("id", user.id)
+      .eq("videos_used_this_month", used);
 
-    if (usedPremium) {
-      const { error: premiumErr } = await admin
-        .from("users")
-        .update({ premium_videos_used_this_month: premiumUsed + 1 })
-        .eq("id", user.id)
-        .eq("premium_videos_used_this_month", premiumUsed);
-      if (premiumErr) {
-        // Migration 009 not applied yet — the render already succeeded, so log
-        // rather than fail it.
-        console.warn("[generate-video] premium counter update failed:", premiumErr.message);
-      }
-    }
-
-    const creditsRemaining = hasMonthlyQuota ? videoCredits : videoCredits - 1;
-    const monthlyRemaining = hasMonthlyQuota ? limit - used - 1 : 0;
+    const monthlyRemaining = Math.max(0, limit - used - 1);
 
     return NextResponse.json({
       request_id,
@@ -319,19 +313,20 @@ export async function POST(request: Request) {
       // True when the plan asked for the pro model without entitlement, so the
       // UI can say why the render used the draft model instead.
       model_downgraded: modelDowngraded,
-      premium_quota_exhausted: premiumQuotaExhausted,
-      premium_remaining: Math.max(0, premiumRemaining - (usedPremium ? 1 : 0)),
-      premium_limit: premiumLimit,
+      used_premium: usedPremium,
+      credits_charged: creditCost,
+      credit_balance: creditBalance,
+      spend_ref: spendRef,
       resolution: renderResolution ?? videoModel.resolution ?? null,
       // Endpoints accept only fixed durations, so this may differ from the
       // scene's scripted length — the UI should show what actually renders.
       duration_seconds: renderSeconds,
-      used: hasMonthlyQuota ? used + 1 : used,
+      used: used + 1,
       limit,
-      credits_remaining: creditsRemaining,
       monthly_remaining: monthlyRemaining,
-      total_remaining: monthlyRemaining + creditsRemaining,
-      used_credit: !hasMonthlyQuota,
+      // Kept for the existing "videos left" display; credit_balance above is
+      // the figure that actually governs whether another render can run.
+      total_remaining: monthlyRemaining,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

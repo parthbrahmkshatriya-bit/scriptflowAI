@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { fal } from "@fal-ai/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { refundCredits } from "@/lib/credits/credits";
 
 import { VIDEO_MODELS } from "@/lib/video/models";
 
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
     const sceneId = searchParams.get("scene_id");
     const modelParam = searchParams.get("model") as "fast" | "pro" | "image" | null;
     const modelId = searchParams.get("model_id"); // full fal.ai model path, takes priority
+    const spendRef = searchParams.get("spend_ref"); // charge to reverse if the render failed
     if (!requestId) {
       return NextResponse.json({ error: "request_id is required" }, { status: 422 });
     }
@@ -61,7 +63,24 @@ export async function GET(request: Request) {
     }
 
     if (statusStr === "FAILED") {
-      return NextResponse.json({ status: "FAILED", error: "Video generation failed on Fal.AI" });
+      // The charge was taken at submit time. A render that fails after that
+      // still produced nothing, so return the credits. Refund is keyed on the
+      // spend reference and is a no-op if polling reports FAILED more than once.
+      let refundedBalance: number | null = null;
+      if (spendRef) {
+        refundedBalance = await refundCredits(
+          createAdminClient(),
+          user.id,
+          spendRef,
+          "render failed"
+        );
+      }
+      return NextResponse.json({
+        status: "FAILED",
+        error: "Video generation failed on Fal.AI",
+        credits_refunded: refundedBalance !== null && refundedBalance >= 0,
+        credit_balance: refundedBalance !== null && refundedBalance >= 0 ? refundedBalance : undefined,
+      });
     }
 
     // IN_QUEUE or IN_PROGRESS
