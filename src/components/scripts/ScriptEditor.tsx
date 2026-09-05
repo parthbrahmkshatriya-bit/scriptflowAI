@@ -15,12 +15,13 @@ interface Props {
   initialScenes: Scene[];
   canGenerateVideo: boolean;
   plan: string;
+  premiumRemaining?: number;
   totalVideoCredits?: number;
   monthlyVideoRemaining?: number;
   purchasedCredits?: number;
 }
 
-export default function ScriptEditor({ scriptId, scriptTitle, initialScenes, canGenerateVideo, plan, totalVideoCredits = 0, monthlyVideoRemaining = 0, purchasedCredits = 0 }: Props) {
+export default function ScriptEditor({ scriptId, scriptTitle, initialScenes, canGenerateVideo, plan, premiumRemaining = 0, totalVideoCredits = 0, monthlyVideoRemaining = 0, purchasedCredits = 0 }: Props) {
   const [scenes, setScenes] = useState<Scene[]>(initialScenes);
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -96,6 +97,7 @@ export default function ScriptEditor({ scriptId, scriptTitle, initialScenes, can
             scene={scene}
             canGenerateVideo={canGenerateVideo}
             plan={plan}
+            premiumRemaining={premiumRemaining}
             totalVideoCredits={totalVideoCredits}
             monthlyVideoRemaining={monthlyVideoRemaining}
             purchasedCredits={purchasedCredits}

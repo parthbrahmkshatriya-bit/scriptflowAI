@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { fal } from "@fal-ai/client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { VIDEO_LIMITS } from "@/lib/constants";
+import { VIDEO_LIMITS, PREMIUM_VIDEO_LIMITS } from "@/lib/constants";
 import { checkUserSecurity, checkVideoRateLimit } from "@/lib/security/check-user";
+import { getMonthlyUsage } from "@/lib/usage/monthly-period";
 import type { Plan } from "@/types/database";
 
 import {
@@ -52,13 +53,20 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const { data: profile } = await admin
       .from("users")
-      .select("plan, videos_used_this_month, video_credits")
+      .select("plan, videos_used_this_month, premium_videos_used_this_month, video_credits, scripts_used_this_month, usage_period_start")
       .eq("id", user.id)
       .single();
 
     const plan = (profile?.plan ?? "free") as Plan;
-    const used = ((profile as Record<string, unknown>)?.videos_used_this_month as number) ?? 0;
     const videoCredits = ((profile as Record<string, unknown>)?.video_credits as number) ?? 0;
+
+    // Roll the usage period over if these counters belong to an earlier month,
+    // so a missed cron run cannot leave an account permanently capped.
+    const usage = await getMonthlyUsage(admin, user.id, profile as Record<string, unknown>);
+    const used = usage.videosUsed;
+    const premiumUsed = usage.premiumVideosUsed;
+    const premiumLimit = PREMIUM_VIDEO_LIMITS[plan] ?? 0;
+    const premiumRemaining = Math.max(0, premiumLimit - premiumUsed);
     const limit = VIDEO_LIMITS[plan] ?? 0;
     const hasMonthlyQuota = used < limit;
     const hasCredits = videoCredits > 0;
@@ -123,12 +131,15 @@ export async function POST(request: Request) {
     const {
       model: videoModel,
       downgraded: modelDowngraded,
+      quotaExhausted: premiumQuotaExhausted,
+      usedPremium,
       resolution: renderResolution,
     } = resolveModel({
       tier: isFast ? "draft" : "pro",
       hasImage,
       plan,
       hd,
+      premiumRemaining,
     });
     const FAL_MODEL = videoModel.endpoint;
 
@@ -285,6 +296,19 @@ export async function POST(request: Request) {
       }
     }
 
+    if (usedPremium) {
+      const { error: premiumErr } = await admin
+        .from("users")
+        .update({ premium_videos_used_this_month: premiumUsed + 1 })
+        .eq("id", user.id)
+        .eq("premium_videos_used_this_month", premiumUsed);
+      if (premiumErr) {
+        // Migration 009 not applied yet — the render already succeeded, so log
+        // rather than fail it.
+        console.warn("[generate-video] premium counter update failed:", premiumErr.message);
+      }
+    }
+
     const creditsRemaining = hasMonthlyQuota ? videoCredits : videoCredits - 1;
     const monthlyRemaining = hasMonthlyQuota ? limit - used - 1 : 0;
 
@@ -295,6 +319,9 @@ export async function POST(request: Request) {
       // True when the plan asked for the pro model without entitlement, so the
       // UI can say why the render used the draft model instead.
       model_downgraded: modelDowngraded,
+      premium_quota_exhausted: premiumQuotaExhausted,
+      premium_remaining: Math.max(0, premiumRemaining - (usedPremium ? 1 : 0)),
+      premium_limit: premiumLimit,
       resolution: renderResolution ?? videoModel.resolution ?? null,
       // Endpoints accept only fixed durations, so this may differ from the
       // scene's scripted length — the UI should show what actually renders.

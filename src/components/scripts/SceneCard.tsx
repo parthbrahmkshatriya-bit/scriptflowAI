@@ -16,6 +16,7 @@ interface Props {
   scene: Scene;
   canGenerateVideo?: boolean;
   plan?: string;
+  premiumRemaining?: number;
   totalVideoCredits?: number;
   monthlyVideoRemaining?: number;
   purchasedCredits?: number;
@@ -91,7 +92,7 @@ function EditableText({
 type VideoStatus = "idle" | "submitting" | "queued" | "processing" | "done" | "failed";
 type VideoModel = "fast" | "pro";
 
-export default function SceneCard({ scene, canGenerateVideo = false, plan = "free", totalVideoCredits = 0, monthlyVideoRemaining = 0, purchasedCredits = 0, onChange }: Props) {
+export default function SceneCard({ scene, canGenerateVideo = false, plan = "free", premiumRemaining = 0, totalVideoCredits = 0, monthlyVideoRemaining = 0, purchasedCredits = 0, onChange }: Props) {
   const [local, setLocal] = useState<Scene>(scene);
   const [copied, setCopied] = useState(false);
   const [videoStatus, setVideoStatus] = useState<VideoStatus>(scene.video_url ? "done" : "idle");
@@ -103,8 +104,14 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
   const [selectedModel, setSelectedModel] = useState<VideoModel>("fast");
   const [hd, setHd] = useState(false);
   // Entitlement is enforced server-side; this only reflects it in the UI.
-  const canUseProModel = planAllowsProModel(plan);
-  const canUseHD = planAllowsHD(plan);
+  const [premiumLeft, setPremiumLeft] = useState(premiumRemaining);
+  // Entitlement AND quota. A plan may be allowed the expensive settings and
+  // still be out of premium renders for the month.
+  const entitledPro = planAllowsProModel(plan);
+  const entitledHD = planAllowsHD(plan);
+  const hasPremiumLeft = premiumLeft > 0;
+  const canUseProModel = entitledPro && hasPremiumLeft;
+  const canUseHD = entitledHD && hasPremiumLeft;
   const [currentCredits, setCurrentCredits] = useState<number>(totalVideoCredits);
   const [referenceImageUrl, setReferenceImageUrl] = useState<string | null>(null);
   const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(null);
@@ -220,6 +227,8 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
         request_id?: string;
         model?: string;
         model_type?: string;
+        premium_remaining?: number;
+        premium_quota_exhausted?: boolean;
         error?: string;
         total_remaining?: number;
       };
@@ -232,6 +241,16 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
       // Update local credit count from server response
       if (typeof data.total_remaining === "number") {
         setCurrentCredits(data.total_remaining);
+      }
+      if (typeof data.premium_remaining === "number") {
+        setPremiumLeft(data.premium_remaining);
+        if (data.premium_remaining <= 0) {
+          setSelectedModel("fast");
+          setHd(false);
+        }
+      }
+      if (data.premium_quota_exhausted) {
+        toast.info("Premium renders used up this month — rendering with Veo 3.1 Lite at 720p.");
       }
 
       const requestId = data.request_id!;
@@ -423,8 +442,10 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
                   <button
                     onClick={() => canUseProModel && setSelectedModel("pro")}
                     title={canUseProModel
-                      ? "Veo 3.1 Fast — higher fidelity, native audio. Costs about twice a Lite render."
-                      : "Veo 3.1 Fast is available on Studio and Agency plans"}
+                      ? "Veo 3.1 Fast — higher fidelity, native audio. Uses one premium render."
+                      : !entitledPro
+                      ? "Veo 3.1 Fast is available on Studio and Agency plans"
+                      : "No premium renders left this month"}
                     className={`px-3 py-1.5 font-medium transition-colors border-l border-white/10 flex items-center gap-1 ${
                       !canUseProModel
                         ? "text-muted-foreground/50 cursor-not-allowed"
@@ -445,8 +466,10 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
                 <button
                   onClick={() => canUseHD && setHd((v) => !v)}
                   title={canUseHD
-                    ? "Render at 1080p instead of 720p"
-                    : "1080p rendering is available on Studio and Agency plans"}
+                    ? "Render at 1080p instead of 720p. Uses one premium render."
+                    : !entitledHD
+                    ? "1080p rendering is available on the Agency plan"
+                    : "No premium renders left this month"}
                   disabled={isGenerating || !canUseHD}
                   className={`px-2.5 py-1.5 rounded-md border text-xs font-medium transition-colors flex items-center gap-1 ${
                     !canUseHD
@@ -459,6 +482,13 @@ export default function SceneCard({ scene, canGenerateVideo = false, plan = "fre
                   {!canUseHD && <Lock className="size-3" />}
                   1080p
                 </button>
+
+                {/* Premium render allowance */}
+                {entitledPro && (
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {premiumLeft} premium left
+                  </span>
+                )}
 
                 {/* Credit display */}
                 <span className="text-[10px] text-muted-foreground">

@@ -9,6 +9,7 @@ import { applyContinuity } from "@/lib/ai/continuity";
 import { PLAN_LIMITS, CLAUDE_MODEL } from "@/lib/constants";
 import { validateEmailDomain } from "@/lib/email-validation";
 import { checkUserSecurity } from "@/lib/security/check-user";
+import { getMonthlyUsage } from "@/lib/usage/monthly-period";
 import type { Plan } from "@/types/database";
 
 // Minimum gap between script generation requests per user (DB-backed cooldown)
@@ -77,12 +78,14 @@ export async function POST(request: Request) {
     // Re-fetch profile after potential creation
     const { data: userProfile } = await admin
       .from("users")
-      .select("plan, scripts_used_this_month, last_script_at")
+      .select("plan, scripts_used_this_month, videos_used_this_month, premium_videos_used_this_month, last_script_at, usage_period_start")
       .eq("id", user.id)
       .single();
 
     const plan = (userProfile?.plan ?? "free") as Plan;
-    const used = userProfile?.scripts_used_this_month ?? 0;
+    // Same rollover as the video route — a missed cron must not cap an account.
+    const usage = await getMonthlyUsage(admin, user.id, userProfile as Record<string, unknown>);
+    const used = usage.scriptsUsed;
     const limit = PLAN_LIMITS[plan];
 
     // Cooldown: prevent burst requests (DB-backed, works on Vercel serverless)

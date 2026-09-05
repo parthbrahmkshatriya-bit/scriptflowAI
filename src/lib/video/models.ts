@@ -87,18 +87,29 @@ export type VideoModelKey = keyof typeof VIDEO_MODELS;
  */
 const PREMIUM_RENDER_PLANS: ReadonlySet<string> = new Set(["studio", "pro", "agency"]);
 
+/**
+ * 1080p is narrower than the Fast model. It multiplies an already-doubled rate,
+ * and on Studio that combination is what takes a fully-consumed plan to roughly
+ * -1,385 INR. Restricting it to the top tier cuts that worst case by ~76%.
+ */
+const HD_PLANS: ReadonlySet<string> = new Set(["pro", "agency"]);
+
 export function planAllowsProModel(plan: string): boolean {
   return PREMIUM_RENDER_PLANS.has(plan);
 }
 
 export function planAllowsHD(plan: string): boolean {
-  return PREMIUM_RENDER_PLANS.has(plan);
+  return HD_PLANS.has(plan);
 }
 
 export interface ResolvedModel {
   model: VideoModel;
   /** The plan asked for the pro model but is not entitled to it. */
   downgraded: boolean;
+  /** Entitled, but the month's premium render quota is already spent. */
+  quotaExhausted: boolean;
+  /** This render consumes one premium slot. */
+  usedPremium: boolean;
   resolution?: "720p" | "1080p";
 }
 
@@ -112,21 +123,54 @@ export function resolveModel(opts: {
   hasImage: boolean;
   plan: string;
   hd?: boolean;
+  /** Premium renders left this month. Omit to skip quota enforcement. */
+  premiumRemaining?: number;
 }): ResolvedModel {
+  // Image-to-video runs on Kling at $0.05/s — as cheap as Lite, so it never
+  // consumes a premium slot regardless of plan.
   if (opts.hasImage) {
-    return { model: VIDEO_MODELS.kling_i2v, downgraded: false };
+    return {
+      model: VIDEO_MODELS.kling_i2v,
+      downgraded: false,
+      quotaExhausted: false,
+      usedPremium: false,
+    };
   }
 
   const wantsPro = opts.tier === "pro";
   const mayUsePro = planAllowsProModel(opts.plan);
-  const model = wantsPro && mayUsePro ? VIDEO_MODELS.veo31_fast : VIDEO_MODELS.veo31_lite;
+  const wantsHd = !!opts.hd;
+  const mayUseHd = planAllowsHD(opts.plan);
 
-  // 1080p costs materially more per second, so it is opt-in even where allowed;
-  // 720p stays the default on every plan.
-  const resolution: "720p" | "1080p" =
-    opts.hd && planAllowsHD(opts.plan) ? "1080p" : "720p";
+  // What the plan entitles them to, before quota.
+  const entitledPro = wantsPro && mayUsePro;
+  const entitledHd = wantsHd && mayUseHd;
+  const wantsPremium = entitledPro || entitledHd;
 
-  return { model, downgraded: wantsPro && !mayUsePro, resolution };
+  const quotaLeft = opts.premiumRemaining ?? Infinity;
+  const quotaExhausted = wantsPremium && quotaLeft <= 0;
+
+  // Out of premium renders falls back to the cheapest configuration rather than
+  // failing — a downgraded render still produces a usable video.
+  if (quotaExhausted) {
+    return {
+      model: VIDEO_MODELS.veo31_lite,
+      downgraded: wantsPro && !mayUsePro,
+      quotaExhausted: true,
+      usedPremium: false,
+      resolution: "720p",
+    };
+  }
+
+  return {
+    model: entitledPro ? VIDEO_MODELS.veo31_fast : VIDEO_MODELS.veo31_lite,
+    downgraded: wantsPro && !mayUsePro,
+    quotaExhausted: false,
+    usedPremium: wantsPremium,
+    // 1080p costs materially more per second, so it is opt-in even where
+    // allowed; 720p stays the default on every plan.
+    resolution: entitledHd ? "1080p" : "720p",
+  };
 }
 
 /** Look up by endpoint path — used by the status route to recover model config. */

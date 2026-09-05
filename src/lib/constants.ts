@@ -408,6 +408,26 @@ export const VIDEO_LIMITS: Record<string, number> = {
   agency: 75,
 };
 
+/**
+ * How many of a plan's monthly renders may use the expensive settings — the
+ * Fast model, or 1080p on the tiers that have it. Everything beyond this falls
+ * back to Veo 3.1 Lite at 720p rather than failing.
+ *
+ * Sized so a fully-consumed plan still clears cost. Studio: 10 renders at Fast
+ * 720p ($0.80) plus 15 at Lite 4s ($0.20) is $11.00 of video against $22.72 of
+ * revenue, leaving room for its $6.45 of scripts. Agency: 20 at Fast 1080p
+ * ($1.28) plus 55 at Lite is $36.60 against $56.81, leaving room for $12.90.
+ *
+ * Creator has none — it is already capped to Lite 720p by entitlement.
+ */
+export const PREMIUM_VIDEO_LIMITS: Record<string, number> = {
+  free: 0,
+  creator: 0,
+  studio: 10,
+  pro: 20,
+  agency: 20,
+};
+
 export const PLATFORM_LABELS: Record<string, string> = {
   youtube_shorts: 'YouTube Shorts',
   instagram_reels: 'Instagram Reels',
